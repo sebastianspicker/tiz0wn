@@ -1,0 +1,29 @@
+# Evidence contains device identifiers (serial, MAC, DUID, tokens). Never commit.
+evidence/*
+!evidence/.gitkeep
+!evidence/README.md
+
+# Local device config holds your TV's IP and host IP.
+config/tv.env
+
+# Raw tool output / private probes
+*.log
+*-private.*
+tv-info*.json
+
+# Agent handoff (per global convention)
+.agents/handoff.md
+
+# OS / editor
+.DS_Store
+*.swp
+
+# Private, re-runnable investigation bundle (firmware, third-party tools, raw outputs). Never commit.
+/private/
+
+# Python bytecode cache
+__pycache__/
+*.pyc
+
+# Rewrite staging copies + process report (originals already replaced in place)
+/rewritten/
