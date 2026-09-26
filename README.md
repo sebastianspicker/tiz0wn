@@ -96,3 +96,8 @@ updates are unsupported by Samsung — a factory reset does not restore the
 - **DUID** — device unique identifier surfaced in some probe responses; treated as sensitive, kept out of tracked files.
 - **app-id vs package-id** — Tizen distinguishes the two; removal/verification must use the one the target route (`sdb`/UI) actually expects (§7.2 of the research doc).
 - **Capability flags** — fields from `scripts/02-capability.sh` (e.g. `intershell_support`, `rootperm`) indicating what the sdbd build allows.
+
+## License
+
+MIT (see [`LICENSE`](LICENSE)). Third-party tools are referenced by URL only and
+kept under their own licenses — see [`NOTICE.md`](NOTICE.md).
