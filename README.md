@@ -1,114 +1,91 @@
-# Q60T debloat — investigation workspace
+# tiz0wn
 
-Reversible-first workspace debloating a personally-owned Samsung
-**GQ55Q60TGUXZG** (firmware `T-NKLDEUC-2743.0, BT-S`). Operationalizes the
-roadmap in
-[`docs/Samsung_Q60T_Debloating_Research_2026-09-25.md`](docs/Samsung_Q60T_Debloating_Research_2026-09-25.md) —
-read that first; this is the runbook. For offline firmware static-analysis
-results (root feasibility, reproduction steps), see
-[`docs/firmware-analysis.md`](docs/firmware-analysis.md).
+An evidence-first security research workspace for a personally owned Samsung
+GQ55Q60TGUXZG television running `T-NKLDEUC-2743.0`.
 
-## Guiding principles
+This began as a reversible debloating project. Firmware analysis eventually
+exposed a much shorter path: Remote PC writes user-controlled SMB credentials,
+the privileged CIFS helper substitutes them into a shell command, and the
+shipped script executes that command as root. A bounded live validation on
+2026-09-27 proved that path with only:
 
-1. **Measure before you cut.** A long app list is not a performance diagnosis (§3).
-2. **Read-only until proven necessary.** Inventory access ≠ root ≠ removable (§5).
-3. **Explicit target only.** Every sdb call passes `-s "$TV_SERIAL"`; never
-   fall back to "the first connected device" (§6.2, §9.2).
-4. **One change at a time**, with a recorded rollback path (§12.2).
-5. **Evidence is private.** `evidence/` is gitignored; it holds serials/MAC/DUID.
-
-There is no bulk-uninstall list. The `research/` directory contains an
-offline-built, firmware-bound Mali reclaim-only probe and separately armed
-candidate credential chain. Its native device stages are excluded from the
-default build, and its managed runner is inactive without exact profile and
-arming gates. The full PoC has never been copied to or run on the TV. On
-2026-09-27, the separately built minimal profile verifier passed once through
-the guarded host route; that assembly contains no EGL, Mali-device, race,
-reclaim, PTE, credential, or payload implementation. The consumed live route
-used active SDB command injection and exposes no exploit mode.
-
-## Phase roadmap → repo mapping
-
-| Phase | Goal | Use |
-|---|---|---|
-| **A** Baseline | Find what's actually slow | `templates/performance-record.md`, `device-record.md` |
-| **B** Reversible cleanup | Menus only, one change at a time | `templates/reversible-changes-log.md` |
-| **C** Read-only SDB inventory | What can this build do? | `scripts/00`–`03`, `templates/compatibility-summary.md` |
-| **D** One controlled removal | Single optional app, verified | `scripts/04-remove-one-app.sh`, `templates/app-change-record.md` |
-| **E** Static firmware analysis | Exact 2743.0 findings and reproducible notes | `docs/firmware-analysis.md` |
-| **F** Bounded active research | Offline Mali ABI, vendor reclaim probe, and candidate credential chain | `research/mali-cve-2022-46395/` |
-
-Phase F now has an executable managed reclaim probe plus a separately armed credential chain, gated native library, and deterministic offline tests. The probe requires exactly one peer-backed Mali L3 candidate table page, absent before and present after target mapping, without arbitrary PTE, credential, or UEP writes. This is an expected test condition, not an observed TV result: the race, reclaim, GPU page-table path, and credential transaction remain unexecuted. The default build and self-test paths do not access a device. See the [vendor disclosure draft](research/mali-cve-2022-46395/DISCLOSURE-DRAFT.md) for the exact evidence and unexecuted command contract.
-
-The [guarded profile-only deployer](research/mali-cve-2022-46395/host/README.md)
-records the completed one-shot profile validation. Its fixed v4 stage is now
-consumed on the assessed TV and must not be retried or removed. Do not deploy
-workspace build output or invoke an exploit mode on the primary TV.
-
-## Setup
-
-Install `sdb` and locate the TV first. See
-[`docs/setup-macos.md`](docs/setup-macos.md): the `.bin` must be run via
-`bash`, not double-clicked, and needs Rosetta on Apple Silicon.
-
-```bash
-cp config/tv.env.example config/tv.env
-$EDITOR config/tv.env          # set SDB path, TV_IP, HOST_IP
+```text
+$(/usr/bin/id>/tmp/<fresh-marker>)
 ```
 
-## Phase C session (read-only)
+A fresh two-push classifier proved that the resulting regular file was owned
+by UID 0 and began with `uid=0(root) gid=0(root)`. This is a root-command proof,
+not persistence, a root shell, a firmware modification, or a claim about
+firmware versions other than the exact assessed build.
 
-Enable Developer Mode on the TV (Apps → `12345` → set this host's IP as Host
-PC IP → restart the TV; research doc §6.1). Then:
+Read [From debloating to tiz0wn](docs/from-debloating-to-tiz0wn.md) for the
+project story and
+[the Remote PC/CIFS research](research/remotepc-cifs-root/README.md) for the
+source trace, offline harness, and guarded reproduction contract.
+
+## Current results
+
+| Area | Result |
+|---|---|
+| Reversible debloating | Inventory and one-change-at-a-time tooling; no bulk uninstall list |
+| Firmware analysis | Exact 2743.0 image decrypted and statically examined; proprietary firmware is not redistributed |
+| Remote PC/CIFS | Command injection through the password field demonstrated as UID 0 on the assessed TV |
+| One-shot harness | Offline audit and loopback RDP/SMB lab complete; the fresh harness has not been run live |
+| Mali CVE-2022-46395 route | Target-specific research remains separate and inconclusive; no Mali root claim |
+
+## Safe local checks
+
+The Remote PC harness is offline by default. Its default command reads only the
+local rootfs tar and does not load TV configuration, open a socket, invoke SDB,
+or start Docker:
 
 ```bash
-scripts/00-preflight.sh        # verify sdb, record version
-scripts/01-connect.sh          # connect + confirm the intended target
-scripts/02-capability.sh       # capability + applist  -> evidence/runs/<ts>-02-capability/
-scripts/03-tv-info.sh          # optional local identity probe
-# ...review evidence/, fill templates/compatibility-summary.md...
-scripts/99-disconnect.sh       # tear down; then disable Developer Mode
+make -C research/remotepc-cifs-root dry-run
+make -C research/remotepc-cifs-root test
+make -C research/remotepc-cifs-root lab-test  # services bind to 127.0.0.1
 ```
 
-## Phase D (only after C + a verified target)
+The Docker build can download its pinned Debian base and Python dependency. A
+fresh build from a frozen, allowlisted source snapshot is mandatory for each
+run; the harness verifies source stability around the build, captures its
+immutable image ID, checks the embedded snapshot digest, and runs that exact
+ID. All lab service and self-test traffic is confined to the Mac. Neither local
+mode contacts the TV.
 
-```bash
-# Supply the identifier YOU verified (app-id vs package-id differ — §7.2).
-scripts/04-remove-one-app.sh --route sdb --id <VERIFIED_PACKAGE_ID>
-```
+Live mode is deliberately separate. It requires exact target identity and
+firmware gates, three authorization phrases, an interactive terminal, two
+visual form/session confirmations, one manual Shared Folder click, and one
+non-retriable classification. Do not use it on a device you do not own and do
+not expose RDP, SMB, SDB, or TV-control ports to the Internet.
 
-Behaviour: snapshots the live app list first (flags whether your ID is
-present), requires interactive confirmation, then unconditionally records
-the removal command's stdout/stderr/exit code, an after-snapshot, and a
-before/after diff — including on failure. Follow with
-`templates/app-change-record.md`, including the post-restart permanence
-check.
+## Repository map
 
-## Script-behaviour invariants
+| Path | Purpose |
+|---|---|
+| [`research/remotepc-cifs-root/`](research/remotepc-cifs-root/) | Validated Remote PC/CIFS finding and offline-first one-shot harness |
+| [`docs/firmware-analysis.md`](docs/firmware-analysis.md) | Exact firmware extraction and static-analysis findings |
+| [`research/mali-cve-2022-46395/`](research/mali-cve-2022-46395/) | Separate, firmware-bound Mali research and offline tests |
+| [`scripts/`](scripts/) | Explicit-target SDB inventory and one-package removal workflow |
+| [`templates/`](templates/) | Baseline, rollback, compatibility, and change records |
+| [`evidence/`](evidence/) | Private run output; identifying evidence is gitignored |
 
-- Each run writes to its own `evidence/runs/<timestamp>-<script>/`; never overwritten.
-- Target must appear in `sdb devices` with exactly your serial **and** state
-  `device`; `offline`/`unauthorized` or a lookalike IP does not qualify.
-- Read-only queries are cut off after `SDB_TIMEOUT` seconds (default 60), no retry.
-- Lint: `shellcheck -x scripts/*.sh scripts/lib/*.sh` (config in `.shellcheckrc`).
+The original research plan remains available at
+[`docs/Samsung_Q60T_Debloating_Research_2026-09-25.md`](docs/Samsung_Q60T_Debloating_Research_2026-09-25.md).
+Statements in dated checkpoints describe what was known at that time; the
+table above is the current project status.
 
-## Safety / scope
+## Safety and scope
 
-Own television, trusted LAN, only. Never port-forward development or
-remote-control ports to the internet (§6.1). Firmware downgrade and forced
-updates are unsupported by Samsung — a factory reset does not restore the
-2020 software (§12.1).
-
-## Glossary
-
-- **SDB (Smart Development Bridge)** — Tizen's debug/deploy protocol/tooling; `sdb devices`/`sdb shell`/`sdb install` etc.
-- **sdbd** — the SDB daemon on the TV; capability flags in Phase C describe what this build's `sdbd` permits.
-- **TV_SERIAL** — the device identifier `sdb devices` reports; scripts pin every call to it via `-s`.
-- **DUID** — device unique identifier surfaced in some probe responses; treated as sensitive, kept out of tracked files.
-- **app-id vs package-id** — Tizen distinguishes the two; removal/verification must use the one the target route (`sdb`/UI) actually expects (§7.2 of the research doc).
-- **Capability flags** — fields from `scripts/02-capability.sh` (e.g. `intershell_support`, `rootperm`) indicating what the sdbd build allows.
+- Own device, trusted local network, explicit target only.
+- Measure first; make one reversible change at a time.
+- Treat IP addresses, DUID/device IDs, tokens, and raw evidence as private.
+- Never infer a firmware range from one verified build.
+- Do not confuse the disposable RDP host's `q60t` terminal with a TV shell.
+- The proof harness leaves target markers and terminal evidence untouched; TV
+  profile and allowed-device cleanup are manual and separately documented.
 
 ## License
 
-MIT (see [`LICENSE`](LICENSE)). Third-party tools are referenced by URL only and
-kept under their own licenses — see [`NOTICE.md`](NOTICE.md).
+MIT; see [`LICENSE`](LICENSE). Firmware and third-party tools are not
+redistributed. Their attribution and licensing are described in
+[`NOTICE.md`](NOTICE.md).

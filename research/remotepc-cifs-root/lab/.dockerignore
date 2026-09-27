@@ -1,0 +1,10 @@
+*
+!.dockerignore
+!Dockerfile
+!client.py
+!client.sh
+!entrypoint.sh
+!healthcheck.sh
+!server.py
+!startwm.sh
+!xrdp-sesman.pam

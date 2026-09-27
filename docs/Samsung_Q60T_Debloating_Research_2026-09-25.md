@@ -10,6 +10,13 @@
 
 > **Editorial note (rewrite pass, 2026-09-26):** This document is unchanged in substance from the 25 September 2026 original; it has been restructured and tightened for a security-researcher audience, with an evidence ledger added up front. One factual pointer has been added: §2.4 states that the firmware archive was "not downloaded or decrypted" *at the time of this research*. A companion document, [`firmware-analysis.md`](firmware-analysis.md), dated one day later, subsequently downloaded, hash-verified and decrypted that exact image and disassembled the historical root primitive. That later work is summarized and cross-referenced from §11; it does not change any conclusion in this document, and no finding from it has been imported into this document's own evidence base below.
 
+> **Later result (2026-09-27):** Subsequent work traced Remote PC SMB
+> credentials into a privileged `mount.smb.sh` shell boundary and demonstrated
+> one bounded `id` command as UID 0 on the exact 2743.0 owner-controlled TV.
+> That result postdates this preserved research snapshot; see
+> [`research/remotepc-cifs-root/`](../research/remotepc-cifs-root/) and
+> [`From debloating to tiz0wn`](from-debloating-to-tiz0wn.md).
+
 ## Contents
 
 - [TL;DR and evidence ledger](#tldr-and-evidence-ledger)

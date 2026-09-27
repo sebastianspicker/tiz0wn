@@ -7,6 +7,15 @@ The host-side work follows research doc
 Live checks used Developer Mode SDB, made no firmware or partition changes,
 and are identified explicitly in F13-F15.
 
+> **Status update, 2026-09-27:** Later source-to-sink work found a separate
+> Remote PC/CIFS credential injection and a bounded owner-authorized live test
+> demonstrated the `id` payload as UID 0 on this exact build. That result does
+> not revive the historical physical-memory primitive or complete the Mali
+> chain discussed below. See
+> [`research/remotepc-cifs-root/`](../research/remotepc-cifs-root/) for the
+> current root finding, scope, and reproduction boundary. Statements below
+> that root was not yet achieved describe the earlier firmware/Mali checkpoint.
+
 This is a public-facing summary: it contains the model string, build/version
 identifiers and public URLs/hashes only. It intentionally omits any
 device-private identifier (TV serial, IP, MAC, DUID) — those never appear in
@@ -546,11 +555,12 @@ of their source code.
 
 ## Practical outcome
 
-The investigation now yields diagnostic `sdk` access, one working reversible
+At the F1-F15 checkpoint, the investigation yielded diagnostic `sdk` access, one working reversible
 service disable, a successful non-exploit exact-profile validation, two
 terminal managed CVE-2021-44828 transport results, and a fully implemented
 CVE-2022-46395 PoC whose guarded live transport stopped before its active
-launch. It still does not yield demonstrated root or factory-app removal. The
+launch. Those routes did not yield demonstrated root or factory-app removal;
+the later, separate Remote PC result is recorded in the status update above. The
 remaining uncertainty has moved from missing code to runtime facts: winning
 the race, obtaining the modeled allocator/page-table reuse, confirming the
 physical mapping and cache behavior, and observing the resulting UEP/SMACK

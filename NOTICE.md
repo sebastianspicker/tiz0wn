@@ -25,6 +25,10 @@ full list. Notable ones:
 - HinTak/`vdfs-tools` (Samsung-derived, **GPLv2**): VDFS4 unpacker.
 - TizenBrew; ardazeytin/`samsung-tizen-tv-debloat`;
   SAWSUBE — see §16.
+- Debian, xrdp, xorgxrdp and Fortra Impacket. The disposable Remote PC lab
+  installs these from their upstream package sources while building locally;
+  their source is not vendored here. Impacket is pinned to `0.13.1` in the
+  lab Dockerfile.
 
 Any local patches the author made to a third-party GPLv2 tool are kept
 privately and are **not** published in this repository; if ever distributed,
@@ -39,6 +43,9 @@ project is not affiliated with or endorsed by Samsung.
 ## Scope
 
 All work here concerns a device the author owns, on a trusted local network.
-The full Q60T chain remains offline and has not been run on the TV. A separately
-built minimal profile verifier containing no exploit implementation was run
-once and confirmed the exact target profile before any EGL or Mali access.
+The Mali chain remains a separate, incomplete research route and has not
+produced a root result. On 2026-09-27, a bounded Remote PC/CIFS credential
+injection was run once on the exact assessed TV and produced a volatile
+`id` marker that was classified as UID 0. It did not install persistence,
+modify firmware, or establish an affected-version range. The replacement
+one-shot harness is offline by default and has not yet been run live.
