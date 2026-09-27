@@ -32,6 +32,9 @@ tv-info*.json
 /research/mali-cve-2022-46395/managed/obj/
 /research/mali-cve-2022-46395/preflight/bin/
 /research/mali-cve-2022-46395/preflight/obj/
+/research/mali-cve-2022-46395/profile-probe/bin/
+/research/mali-cve-2022-46395/profile-probe/obj/
+/research/mali-cve-2022-46395/*.wgt
 
 # Local CVE-2021-44828 build products
 /research/mali-cve-2021-44828/q60t-cve-2021-44828-poc*

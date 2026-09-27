@@ -44,9 +44,11 @@ private working files and are not tracked in this repository.
   probe are implemented and tested offline. Both the 44828 direct-loader
   self-test and a target-bound, package-manager-installed WGT attempt were
   blocked by `failed to map segment` before `main`. No JIT soft job from that
-  validator has run on the TV. The separately armed 46395 candidate credential
-  chain also remains offline-only. No race, GPU page-table write, credential
-  write, or root result has been attempted on the TV (F14).
+  validator has run on the TV. Two distinct managed validator transports also
+  stopped at their device-free proof gates. The separately armed 46395 final
+  credential transport installed and attested successfully but likewise
+  stopped at its device-free proof gate before the active launch. No race, GPU
+  page-table write, credential write, or root transition ran on the TV (F14).
 - The historical Q60T root primitive — an arbitrary physical-memory mapping
   driver (`sdp_mem`, later `sdp_hwmem`) — is **hardened** on this build: a
   whitelist-containment check plus an explicit kernel-region-intersection
@@ -274,19 +276,56 @@ The validator's current evidence boundary is important:
   found `failed to map segment` and later confirmed no matching process, but
   fail-closed semantics retained the installed package and recovery stage. It
   was not retried or automatically uninstalled.
+- A separate managed transport then installed and attested package
+  `q60t04482m`, copied the exact .NET Core 2.2 payload into a fresh writable
+  stage, and reached its device-free proof gate. The launcher returned zero
+  with an empty redirected output file, but none of the three exclusive proof
+  files existed. This is consistent with the firmware launcher consuming the
+  unprefixed `--self-test-proof` argument and running the assembly's no-argument
+  dry-run path. The failed proof gate preceded the detached launch gate, so no
+  `/dev/mali0` open, ioctl, or JIT soft job occurred. The package and stage are
+  retained as a terminal one-shot state; they must not be retried, removed, or
+  reused automatically.
+- Live transport diagnostics also established a target-shell constraint that
+  is easy to misclassify as a profile or payload failure. In the SDB injection
+  context, `bash profile.sh` and even `bash -n /dev/null` failed, whereas
+  `bash <profile.sh` and `bash </dev/null` succeeded. Staged scripts therefore
+  have to be read on standard input; scripts needing positional arguments use
+  `bash -s pre <package.sh` or `bash -s post <package.sh`. Hash, profile,
+  package, copy, proof, launch, and classification gates in the current
+  transports follow this form.
+- Tizen Studio supplies two similarly named but incompatible command-line
+  front ends. The current transport pins `tools/tizen-core/tz` (SHA-256
+  `fc88160a1e2d7ee0ce6d2fd821d821bf4c421c698c53ba1534b7643ba6034cb2`),
+  whose packaging command is `tz pack` and whose repack flags include `-b`,
+  `-o`, and `-p`; it rejects `tz package`. The older
+  `tools/ide/bin/tizen` front end instead exposes `tizen package` and rejects
+  `tizen pack`. Their command names and option sets must not be mixed. The WGT
+  builders and guarded installers in this investigation intentionally use the
+  pinned `tz pack` / `tz install` interface.
 - Consequently, no version ioctl, JIT initialization, allocation/free soft
   atom, or protected-result observation from this validator has occurred on
   the TV. The live driver has not been classified as `vulnerable` or
   `not_observed` by the PoC.
 
-Readiness is therefore **blocked at this snapshot** for the actual Mali
-request. Certificate issuance and package installation succeeded, but the
-mandatory loader prerequisite failed from application storage as well as from
-`sdk_tools`. The one-shot bounded permission validator was not run. Any future
-transport would still need an exact device-free self-test pass before accepting
-the nonzero live-driver risk: a 20-second process alarm and 3-second event waits
-cannot recover an uninterruptible driver ioctl, and process death still depends
-on driver context cleanup.
+The native route is therefore **blocked permanently for these consumed
+stages**, and both managed routes are terminal. The second managed package,
+`q60t04482n`, used a fresh `-v4` stage and accepted only the leading-`--run` forms
+`--run --preflight --arm Q60T-44828-MANAGED-ONE-SHOT-ARM` and
+`--run --probe-jit-write-proof /dev/mali0 --arm
+Q60T-44828-MANAGED-ONE-SHOT-ARM`. That exact device-free form passed
+reproducible ARM-container tests. On the TV the package installed and its
+members were attested, but the launcher returned zero with empty output and no
+durable proofs; the host therefore did not admit the Mali launch. Package
+`q60t04482n` and its stage are retained and must not be retried or removed
+automatically.
+
+The final `q60t046395` CVE-2022-46395 credential transport behaved the same
+way at its full-DLL preflight: install, member attestation, copy, and launcher
+exit gates passed, but output was empty and the exclusive preflight proof was
+absent. Separate predicates confirmed no completion, result, attempt, or child
+entry marker. Its active gate was never reached, so it provides no root proof.
+The package and credential stage are retained terminal evidence.
 
 The same module also matches the independently disclosed CVE-2022-46395 race:
 
@@ -421,6 +460,15 @@ exposes no exploit mode. Every exploit invocation makes exactly one attempt;
 Fanout/timing options are `--epolls` (1–500), `--watches` (1–128), product at
 most 50,000, `--lead-us` (1–1,000,000), and `--unmap-us` (0–1,000,000).
 
+The later full-candidate WGT transport preserves the same shell finding: every
+uploaded target script is executed from standard input rather than by filename,
+including `bash -s pre/post <package.sh`. It uses a distinct package and stage,
+requires the copied full DLL's leading-`--run` device-free preflight proof, and
+only then admits one detached reclaim or credential-proof launch. The signed
+credential transport was installed once, but the copied launcher returned zero
+with empty output and no preflight proof. The active launch was not admitted;
+the package and stage remain retained.
+
 **F15 — A reversible non-root debloat control works. Confidence: high (live
 change and verification).** `com.samsung.tv.multiscreen.service` has a vendor
 condition that suppresses startup when
@@ -499,9 +547,10 @@ of their source code.
 ## Practical outcome
 
 The investigation now yields diagnostic `sdk` access, one working reversible
-service disable, a successful non-exploit exact-profile validation, and a
-fully implemented but target-unexecuted CVE-2022-46395 PoC. It still does not
-yield demonstrated root or factory-app removal. The
+service disable, a successful non-exploit exact-profile validation, two
+terminal managed CVE-2021-44828 transport results, and a fully implemented
+CVE-2022-46395 PoC whose guarded live transport stopped before its active
+launch. It still does not yield demonstrated root or factory-app removal. The
 remaining uncertainty has moved from missing code to runtime facts: winning
 the race, obtaining the modeled allocator/page-table reuse, confirming the
 physical mapping and cache behavior, and observing the resulting UEP/SMACK
