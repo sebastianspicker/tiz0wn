@@ -17,8 +17,15 @@ results (root feasibility, reproduction steps), see
 4. **One change at a time**, with a recorded rollback path (§12.2).
 5. **Evidence is private.** `evidence/` is gitignored; it holds serials/MAC/DUID.
 
-No bulk-uninstall list and no exploit/firmware code in this tree — the
-research argues against all three for this device (§7.5, §9, §10).
+There is no bulk-uninstall list. The `research/` directory contains an
+offline-built, firmware-bound Mali reclaim-only probe and separately armed
+candidate credential chain. Its native device stages are excluded from the
+default build, and its managed runner is inactive without exact profile and
+arming gates. The full PoC has never been copied to or run on the TV. On
+2026-09-27, the separately built minimal profile verifier passed once through
+the guarded host route; that assembly contains no EGL, Mali-device, race,
+reclaim, PTE, credential, or payload implementation. The consumed live route
+used active SDB command injection and exposes no exploit mode.
 
 ## Phase roadmap → repo mapping
 
@@ -28,11 +35,15 @@ research argues against all three for this device (§7.5, §9, §10).
 | **B** Reversible cleanup | Menus only, one change at a time | `templates/reversible-changes-log.md` |
 | **C** Read-only SDB inventory | What can this build do? | `scripts/00`–`03`, `templates/compatibility-summary.md` |
 | **D** One controlled removal | Single optional app, verified | `scripts/04-remove-one-app.sh`, `templates/app-change-record.md` |
-| **E** Static firmware analysis | (not scaffolded — no TV writes; isolated VM per §11) | — |
-| **F** Bounded active research | (out of scope for this scaffold; §10, §14) | — |
+| **E** Static firmware analysis | Exact 2743.0 findings and reproducible notes | `docs/firmware-analysis.md` |
+| **F** Bounded active research | Offline Mali ABI, vendor reclaim probe, and candidate credential chain | `research/mali-cve-2022-46395/` |
 
-E and F are deliberately unscripted: they require an isolated analysis
-environment and per-stage evidence, not a canned tool.
+Phase F now has an executable managed reclaim probe plus a separately armed credential chain, gated native library, and deterministic offline tests. The probe requires exactly one peer-backed Mali L3 candidate table page, absent before and present after target mapping, without arbitrary PTE, credential, or UEP writes. This is an expected test condition, not an observed TV result: the race, reclaim, GPU page-table path, and credential transaction remain unexecuted. The default build and self-test paths do not access a device. See the [vendor disclosure draft](research/mali-cve-2022-46395/DISCLOSURE-DRAFT.md) for the exact evidence and unexecuted command contract.
+
+The [guarded profile-only deployer](research/mali-cve-2022-46395/host/README.md)
+records the completed one-shot profile validation. Its fixed v4 stage is now
+consumed on the assessed TV and must not be retried or removed. Do not deploy
+workspace build output or invoke an exploit mode on the primary TV.
 
 ## Setup
 

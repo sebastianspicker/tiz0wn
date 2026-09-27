@@ -11,8 +11,8 @@ config/tv.env
 *-private.*
 tv-info*.json
 
-# Agent handoff (per global convention)
-.agents/handoff.md
+# Local agent handoff, isolated builds, and diagnostic traces
+.agents/
 
 # OS / editor
 .DS_Store
@@ -20,6 +20,25 @@ tv-info*.json
 
 # Private, re-runnable investigation bundle (firmware, third-party tools, raw outputs). Never commit.
 /private/
+
+# Local CVE-2022-46395 build products
+/research/mali-cve-2022-46395/*.o
+/research/mali-cve-2022-46395/q60t-46395-plan
+/research/mali-cve-2022-46395/q60t-root-payload
+/research/mali-cve-2022-46395/q60t-profile-payload-test
+/research/mali-cve-2022-46395/q60t-chain-core-test
+/research/mali-cve-2022-46395/*.dSYM/
+/research/mali-cve-2022-46395/managed/bin/
+/research/mali-cve-2022-46395/managed/obj/
+/research/mali-cve-2022-46395/preflight/bin/
+/research/mali-cve-2022-46395/preflight/obj/
+
+# Local CVE-2021-44828 build products
+/research/mali-cve-2021-44828/q60t-cve-2021-44828-poc*
+/research/mali-cve-2021-44828/*.wgt
+/research/mali-cve-2021-44828/*.dSYM/
+/research/mali-cve-2021-44828/managed/bin/
+/research/mali-cve-2021-44828/managed/obj/
 
 # Python bytecode cache
 __pycache__/
