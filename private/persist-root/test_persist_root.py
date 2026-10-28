@@ -266,7 +266,7 @@ class RootSetupEndToEnd(unittest.TestCase):
         hook = self.sandbox / "opt" / "etc" / "parseinfo.sh"
         self.assertTrue(hook.is_file())
         self.assertEqual(stat.S_IMODE(hook.stat().st_mode), 0o755)
-        self.assertIn('TIZ0WN_USER="tiz0wn"', hook.read_text(encoding="ascii"))
+        self.assertIn('TIZ0WN_USER=\'tiz0wn\'', hook.read_text(encoding="ascii"))
         self.assertIn("tiz0wn-boot-", hook.read_text(encoding="ascii"))
         self.assertTrue((self.sandbox / "tmp" / "tiz0wn-root-ok").is_file())
         marker = (
@@ -419,6 +419,106 @@ class RootSetupEndToEnd(unittest.TestCase):
         with socket.socket() as probe:
             probe.bind(("127.0.0.1", 0))
             return probe.getsockname()[1]
+
+    def test_selfheal_restores_shadow_hash_byte_exact(self):
+        """Regression for the double-quoted hook hash: the hook's self-heal
+        path must write the exact original hash to /etc/shadow."""
+        self.run_script()  # initial apply
+        passwd = self.sandbox / "etc" / "passwd"
+        hook = self.sandbox / "opt" / "etc" / "parseinfo.sh"
+        # simulate a device wipe of the account, then run the hook
+        cleaned = "\n".join(
+            line for line in passwd.read_text(encoding="ascii").splitlines()
+            if not line.startswith("tiz0wn:")
+        ) + "\n"
+        passwd.write_text(cleaned, encoding="ascii")
+        shadow = self.sandbox / "etc" / "shadow"
+        if not shadow.exists():
+            shadow.write_text("root:!:20000:0:99999:7:::\n", encoding="ascii")
+        executed = subprocess.run(
+            ["/bin/sh", str(hook)],
+            capture_output=True,
+            text=True,
+            check=False,
+            env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "TIZ0WN_ROOT": str(self.sandbox)},
+            input="",
+        )
+        self.assertEqual(executed.returncode, 0, executed.stderr)
+        # the hook writes the hash byte-exactly — the whole point of the
+        # self-heal path; a corrupted hash here breaks login silently.
+        lines = shadow.read_text(encoding="ascii").splitlines()
+        self.assertTrue(
+            any(
+                line == f"tiz0wn:{TEST_HASH}:20000:0:99999:7:::"
+                for line in lines
+            ),
+            f"self-healed shadow line must match the original hash exactly: {lines}",
+        )
+
+    def test_selfheal_creates_shadow_when_absent(self):
+        """The hook must create a 0600 shadow with the hash when none exists."""
+        hook = self.sandbox / "opt" / "etc" / "parseinfo.sh"
+        self.run_script()
+        shadow = self.sandbox / "etc" / "shadow"
+        shadow.unlink(missing_ok=True)
+        executed = subprocess.run(
+            ["/bin/sh", str(hook)],
+            capture_output=True,
+            text=True,
+            check=False,
+            env={"PATH": "/usr/bin:/bin:/usr/sbin:/sbin", "TIZ0WN_ROOT": str(self.sandbox),
+                 "TIZ0WN_PWHASH": TEST_HASH, "TIZ0WN_TOKEN": TEST_TOKEN,
+                 "TIZ0WN_USER": "tiz0wn"},
+            input="",
+        )
+        self.assertEqual(executed.returncode, 0, executed.stderr)
+        shadow = self.sandbox / "etc" / "shadow"
+        self.assertTrue(shadow.exists())
+        self.assertEqual(stat.S_IMODE(shadow.stat().st_mode), 0o600)
+        self.assertIn("tiz0wn:", shadow.read_text(encoding="ascii"))
+    def test_revert_survives_an_unset_root(self):
+        """Regression for ${ROOT:?}: the remove path must not abort when
+        TIZ0WN_ROOT is empty (the TV case). With the empty value the revert
+        operates on the real host paths, so assert behaviour, not sandbox state."""
+        self.run_script()
+        hook = self.sandbox / "opt" / "etc" / "parseinfo.sh"
+        self.assertTrue(hook.exists())
+        revert = self.run_script("--revert", extra_env={"TIZ0WN_ROOT": ""})
+        self.assertEqual(revert.returncode, 0, revert.stderr)
+        # Aborting at ${ROOT:?} would leave no completion line at all.
+        self.assertIn("revert complete", revert.stderr)
+        # The joiner itself is the bug: ${VAR:?} aborts, ${VAR}/ does not.
+        probe = self.sandbox / "join-probe.sh"
+        probe.write_text(
+            '#!/bin/sh\nROOT=""\nrm -rf "${ROOT}home/x" 2>/dev/null || true\n'
+            'printf "survived\\n"\n',
+            encoding="ascii",
+        )
+        out = subprocess.run(["/bin/sh", str(probe)], capture_output=True, text=True, check=False)
+        self.assertEqual(out.stdout.strip(), "survived")
+        # A revert with the sandbox prefix still removes the account and hook.
+        self.run_script("--revert")
+        passwd = (self.sandbox / "etc" / "passwd").read_text(encoding="ascii")
+        self.assertNotIn("tiz0wn:", passwd)
+        self.assertFalse(hook.exists())
+
+    def test_two_concurrent_applies_produce_one_account(self):
+        """Two interleaved applications must not duplicate the passwd line."""
+        import threading
+
+        results = []
+
+        def apply() -> None:
+            results.append(self.run_script())
+
+        threads = [threading.Thread(target=apply) for _ in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        passwd = (self.sandbox / "etc" / "passwd").read_text(encoding="ascii")
+        lines = [line for line in passwd.splitlines() if line.startswith("tiz0wn:")]
+        self.assertEqual(len(lines), 1, "concurrent applies must not duplicate the account")
 
     def test_refuses_unknown_argument(self):
         result = self.run_script("--bogus")

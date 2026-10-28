@@ -72,20 +72,56 @@ class ServeContracts(unittest.TestCase):
         status, _ = self.fetch("/nope")
         self.assertEqual(status, 404)
 
+    def test_custom_http_path_is_honored(self):
+        """--http-path must serve the body there, not only at /d."""
+        body = serve.prepare_body(
+            user="tiz0wn", password_hash=HASH, token=TOKEN,
+            shell_host="", shell_port="", extra_args="",
+        ).encode("ascii")
+        port = free_port()
+        server = serve.build_server(bind="127.0.0.1", port=port, body=body, http_path="/custom")
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+
+        def request(path: str) -> int:
+            connection = http.client.HTTPConnection("127.0.0.1", port, timeout=5)
+            connection.request("GET", path)
+            status = connection.getresponse().status
+            connection.close()
+            return status
+
+        try:
+            self.assertEqual(request("/custom"), 200)
+            self.assertEqual(request("/d"), 404)
+        finally:
+            server.shutdown()
+            server.server_close()
+
+    def test_head_returns_headers_without_the_body(self):
+        """HEAD must not leak the body (it carries the account hash)."""
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        connection.request("HEAD", "/d")
+        response = connection.getresponse()
+        length = response.getheader("Content-Length")
+        payload_bytes = response.read()
+        connection.close()
+        self.assertEqual(response.status, 200)
+        self.assertEqual(int(length), len(self.body))
+        self.assertEqual(payload_bytes, b"")
+
     def test_body_has_no_unresolved_live_placeholders(self):
         """Placeholders may only survive inside the embedded hook template,
         which the applying script resolves itself with sed."""
         text = self.body.decode("ascii")
-        marker = "<<'HOOK'\n"
+        marker = "cat >\"${HOOK}.new\" <<'HOOK' || { rm -f \"${HOOK}.new\"; return 1; }\n"
         head, sep, hook = text.partition(marker)   # before vs. inside the template
         self.assertTrue(sep, "the embedded hook heredoc must be present")
         head_code = "\n".join(
             line for line in head.splitlines() if not line.lstrip().startswith("#")
         )
-        for placeholder in ("@USER@", "@PWHASH@", "@TOKEN@", "@SHELL_HOST@", "@SHELL_PORT@"):
+        for placeholder in ("@PWHASH@", "@TOKEN@", "@SHELL_HOST@", "@SHELL_PORT@"):
             self.assertNotIn(placeholder, head_code, f"{placeholder} left unresolved in the body head")
             self.assertIn(placeholder, hook, f"{placeholder} missing from the hook template")
-
     def test_served_body_is_valid_sh_and_silent(self):
         check = subprocess.run(["/bin/sh", "-n", "/dev/stdin"], input=self.body.decode("ascii"), capture_output=True, text=True, check=False)
         self.assertEqual(check.returncode, 0, check.stderr)

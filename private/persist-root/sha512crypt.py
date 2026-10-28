@@ -41,8 +41,10 @@ def hash_password(password: str, *, salt: str | None = None, rounds: int = 5000)
         raise ValueError("password must not be empty")
     if len(password.encode("utf-8")) > MAX_PASSWORD_BYTES:
         raise ValueError(f"password exceeds {MAX_PASSWORD_BYTES} bytes")
-    if 1000 <= rounds <= 999_999_999 and rounds != 5000:
-        raise ValueError("only the default 5000 rounds are supported")
+    if rounds != 5000:
+        # The TV's shadow parser assumes the standard $6$ encoding, which is
+        # fixed to 5000 rounds; a different count would never verify there.
+        raise ValueError("only the standard 5000 rounds are supported")
     if salt is None:
         salt = "".join(secrets.choice(ALPHABET) for _ in range(MAX_SALT_LENGTH))
     if not salt or not set(salt) <= SALT_ALPHABET:

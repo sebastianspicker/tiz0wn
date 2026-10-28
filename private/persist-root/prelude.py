@@ -25,6 +25,13 @@ HASH_RE = re.compile(r"^\$[0-9]\$[^!\"' \t\n\r]{1,128}$")
 HASH_SAFE_RE = re.compile(r"^[^'\\]*$")
 
 
+def _valid_port(port: str) -> bool:
+    """True when port is a decimal string in the 1-65535 range."""
+    if not re.fullmatch(r"\d{1,5}", port):
+        return False
+    return 1 <= int(port) <= 65535
+
+
 def shell_quote(value: str) -> str:
     """Wrap one value in single quotes for the prelude."""
     if not HASH_SAFE_RE.match(value):
@@ -47,10 +54,10 @@ def build_prelude(
         raise ValueError("password_hash must be a crypt hash ($6$... / $1$...)")
     if not re.fullmatch(r"[0-9a-f]{16}", token):
         raise ValueError("token must be 16 lowercase hex characters")
-    if shell_host and not payload.IPV4_RE.fullmatch(shell_host):
-        raise ValueError("shell_host must be a dotted-quad IPv4 literal or empty")
-    if shell_port and not re.fullmatch(r"\d{1,5}", shell_port):
-        raise ValueError("shell_port must be numeric or empty")
+    if shell_host and not payload.canonical_ipv4(shell_host):
+        raise ValueError("shell_host must be a canonical IPv4 literal or empty")
+    if shell_port and not _valid_port(shell_port):
+        raise ValueError("shell_port must be 1-65535 or empty")
     if bool(shell_host) != bool(shell_port):
         raise ValueError("shell_host and shell_port must be set together or both empty")
     if extra_args not in ("", "--revert"):

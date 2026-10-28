@@ -189,6 +189,10 @@ def main() -> int:
             and "No such file or directory" in execution.stderr
         )
         benign = execution.returncode == 0 or benign_mount_failure
+        # The hash must survive the double sed + heredoc path verbatim; a
+        # mangled hash here yields an un-loginable account after any self-heal.
+        hook_text = hook.read_text(encoding="ascii") if hook.is_file() else ""
+        hook_hash_ok = f"TIZ0WN_PWHASH='{TEST_HASH}'" in hook_text
         results.append(
             {
                 "case": "pipe-end-to-end",
@@ -196,6 +200,7 @@ def main() -> int:
                 "stderr_excerpt": execution.stderr.strip().splitlines()[-1:] or [],
                 "user_present": user_count(passwd) == 1,
                 "hook_mode": (stat.S_IMODE(hook.stat().st_mode) if hook.is_file() else None),
+                "hook_hash_verbatim": hook_hash_ok,
                 "boot_marker": (SANDBOX_BASE / "opt/usr/home/owner/share/tmp/sdk_tools" / f"tiz0wn-root-{TEST_TOKEN}.out").is_file(),
                 "volatile_marker": (SANDBOX_BASE / "tmp" / "tiz0wn-root-ok").is_file(),
                 "inner_stdout_silent": "persist-root:" not in execution.stdout,
@@ -204,6 +209,7 @@ def main() -> int:
                     and user_count(passwd) == 1
                     and hook.is_file()
                     and stat.S_IMODE(hook.stat().st_mode) == 0o755
+                    and hook_hash_ok
                     and (SANDBOX_BASE / "opt/usr/home/owner/share/tmp/sdk_tools" / f"tiz0wn-root-{TEST_TOKEN}.out").is_file()
                     and "persist-root:" not in execution.stdout
                 ),

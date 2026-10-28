@@ -51,7 +51,7 @@ having no `User=` (root). Rollback is by design: the pre-existing
 ## Offline use
 
 ```bash
-make -C private/persist-root check      # lint + 35 tests + repro + ledger
+make -C private/persist-root check      # lint + 75 tests + repro + ledger
 ```
 
 - `make test` — payload grammar, servable-body contracts, hash vectors,
@@ -61,7 +61,9 @@ make -C private/persist-root check      # lint + 35 tests + repro + ledger
   appears, the hook lands 0755, a second trigger is idempotent, `--revert`
   restores, and a whitespace password (the tracked negative control) delivers
   nothing.
-- `make ledger-verify` — checks the hash-chained work ledger in `LEDGER.jsonl`.
+- `make ledger-verify` — checks the hash chain and the out-of-band
+  `LEDGER.head` anchor. The chain alone only catches lazy edits; anyone who can
+  write the file can recompute it, so the head hash is committed separately.
 
 ## Live use
 
@@ -150,11 +152,23 @@ later hardened:
 
 ```bash
 python3 private/persist-root/serve.py --bind <IP> --password '<same>' \
-  --token "$TOKEN" --revert --ack I-AUTHORIZE-PERSISTENT-ROOT-SETUP
+  --token "$TOKEN" --revert --ack I-AUTHORIZE-PERSISTENT-ROOT-REVERT
 ```
 
-and trigger once as above. `I-AUTHORIZE-PERSISTENT-ROOT-REVERT` records the
-decision.
+and trigger once as above.
+
+`--revert` deliberately needs its own phrase so a mistaken re-trigger is
+visible: the server refuses the setup phrase in revert mode and vice versa.
+
+## SMACK and boot-hook caveats
+
+- The hook carries the vendor file's SMACK label forward when `chsmack` exists
+  (`ls -lZ` field 5). If `AT-HUB.service` runs under a label our replacement
+  does not carry, the hook is 0755 but never execs. **Verify after the live run**
+  that `/opt/etc/parseinfo.sh` still has its original label and that the boot
+  marker appears after a reboot before claiming persistence.
+- `AT-HUB` starts early, so the shell loop retries for ~60 s; on a slow network
+  that can still miss. A following reboot is the normal retry.
 
 ## Honest limits
 

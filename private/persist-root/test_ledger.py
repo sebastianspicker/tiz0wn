@@ -16,13 +16,17 @@ class LedgerContracts(unittest.TestCase):
 
         self._tmp = tempfile.TemporaryDirectory(prefix="tiz0wn-ledger-")
         self.path = Path(self._tmp.name) / "LEDGER.jsonl"
+        self.head = Path(self._tmp.name) / "LEDGER.head"
         self._previous = ledger.LEDGER
+        self._previous_head = ledger.HEAD_FILE
         ledger.LEDGER = self.path
+        ledger.HEAD_FILE = self.head
 
     def tearDown(self):
         import shutil
 
         ledger.LEDGER = self._previous
+        ledger.HEAD_FILE = self._previous_head
         shutil.rmtree(self._tmp.name, ignore_errors=True)
 
     def test_genesis_record_chains_from_zero(self):
@@ -71,6 +75,45 @@ class LedgerContracts(unittest.TestCase):
             ledger.append("note", bad="a$b")
         with self.assertRaises(SystemExit):
             ledger.append("note", bad="a`b")
+
+    def test_head_anchor_detects_a_full_chain_rewrite(self):
+        """A rewrite that recomputes every link still fails the sealed anchor."""
+        import hashlib
+
+        ledger.append("note", message="original")
+        ledger.seal()
+        # rewrite the record and recompute the chain properly
+        line = self.path.read_text(encoding="ascii").strip()
+        document = json.loads(line)
+        document["details"] = {"message": "rewritten"}
+        document["details_sha256"] = hashlib.sha256(
+            ledger.canonical(document["details"])
+        ).hexdigest()
+        self.path.write_text(ledger.canonical(document).decode("ascii") + "\n", encoding="ascii")
+        ledger._read_records()  # the chain itself is still self-consistent
+        with self.assertRaises(SystemExit):
+            ledger.verify()
+
+    def test_seal_refuses_to_overwrite_without_force(self):
+        ledger.append("note", message="one")
+        ledger.seal()
+        ledger.append("note", message="two")
+        with self.assertRaises(SystemExit):
+            ledger.seal()
+        ledger.seal(force=True)
+        ledger.verify()
+
+    def test_append_recovers_from_a_missing_trailing_newline(self):
+        ledger.append("note", message="one")
+        data = self.path.read_bytes().rstrip(b"\n")
+        self.path.write_bytes(data)          # simulate a stripped final newline
+        ledger.append("note", message="two")
+        self.assertEqual(len(ledger._read_records()), 2)
+
+    def test_seal_then_intact_file_verifies(self):
+        ledger.append("note", message="ok")
+        ledger.seal()
+        ledger.verify()
 
     def test_records_are_canonical_json_lines(self):
         ledger.append("note", message="x")

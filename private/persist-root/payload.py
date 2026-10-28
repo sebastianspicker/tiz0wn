@@ -99,13 +99,30 @@ def validate(password: str) -> None:
         raise ValueError(f"payload is {len(password.encode('ascii'))} bytes, over {REVIEWED_BOUND}")
 
 
+HTTP_PATH_RE = re.compile(r"[A-Za-z0-9/._~-]+")
+
+
 def require_host(host_ip: str, port: int, http_path: str) -> None:
     if not IPV4_RE.fullmatch(host_ip):
         raise ValueError("host_ip must be a dotted-quad IPv4 literal")
     if not (1 <= port <= 65535):
         raise ValueError("port out of range")
-    if not http_path.startswith("/") or WHITESPACE_RE.search(http_path):
-        raise ValueError("http_path must be a slash-prefixed token")
+    # The path is inserted into the command unquoted inside $(), so anything
+    # with shell meaning (& ; | ) etc.) would split or break the command.
+    if not http_path.startswith("/") or not HTTP_PATH_RE.fullmatch(http_path):
+        raise ValueError("http_path must be /[A-Za-z0-9/._~-]+")
+
+
+def canonical_ipv4(host_ip: str) -> str:
+    """Parse a strict IPv4 literal and return its canonical form."""
+    if not IPV4_RE.fullmatch(host_ip):
+        raise ValueError("shell_host must be a dotted-quad IPv4 literal")
+    import ipaddress
+
+    address = ipaddress.IPv4Address(host_ip)
+    if str(address) != host_ip:
+        raise ValueError("shell_host must be a canonical IPv4 literal")
+    return host_ip
 
 
 def _wrap(inner: str) -> str:

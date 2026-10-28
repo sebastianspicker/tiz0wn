@@ -28,6 +28,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 LEDGER = HERE / "LEDGER.jsonl"
+HEAD_FILE = HERE / "LEDGER.head"
 
 SCHEMA = 1
 ZERO_HASH = "0" * 64
@@ -44,6 +45,8 @@ ACTIONS = (
     "unittest-passed",
     "offline-repro-passed",
     "checklist-passed",
+    "audit-complete",
+    "audit-finding-fixed",
     "note",
 )
 
@@ -117,15 +120,55 @@ def append(action: str, **details: str) -> dict:
         "details_sha256": hashlib.sha256(canonical(details)).hexdigest(),
     }
     raw = canonical(payload) + b"\n"
+    needs_newline = False
+    if LEDGER.is_file():
+        data = LEDGER.read_bytes()
+        needs_newline = bool(data) and not data.endswith(b"\n")
     with open(LEDGER, "ab" if LEDGER.exists() else "wb") as stream:
+        if needs_newline:
+            stream.write(b"\n")
         stream.write(raw)
     print(f"ledger: appended {action} (sequence {payload['sequence']})")
     return payload
 
 
+def verify() -> None:
+    records = _read_records()
+    print(f"ledger: {len(records)} records verified, chain intact")
+    # The chain alone is only tamper-evident against lazy edits: an attacker
+    # who can write the file can recompute it. LEDGER.head holds the head hash
+    # out of band (it is separately committed), so a rewrite is visible.
+    head = hashlib.sha256(records[-1][0]).hexdigest() if records else ZERO_HASH
+    if HEAD_FILE.is_file():
+        anchored = HEAD_FILE.read_text(encoding="ascii").strip()
+        if anchored != head:
+            raise SystemExit("ledger head does not match the LEDGER.head anchor")
+        print("ledger: head matches the out-of-band anchor")
+        return
+    print("ledger: no LEDGER.head anchor yet; run --seal to create one")
+
+
+def seal(*, force: bool = False) -> None:
+    records = _read_records()
+    head = hashlib.sha256(records[-1][0]).hexdigest() if records else ZERO_HASH
+    if HEAD_FILE.is_file() and not force:
+        previous = HEAD_FILE.read_text(encoding="ascii").strip()
+        if previous == head:
+            print(f"ledger: anchor already current ({head[:16]}...)")
+            return
+        raise SystemExit(
+            f"anchor exists ({previous[:16]}...); re-run with --reseal after "
+            "eyeballing the new head"
+        )
+    HEAD_FILE.write_text(head + "\n", encoding="ascii")
+    print(f"ledger: sealed head {head[:16]}...")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--verify", action="store_true", help="verify the chain and exit")
+    parser.add_argument("--seal", action="store_true", help="write the head anchor (refuses to overwrite)")
+    parser.add_argument("--reseal", action="store_true", help="overwrite an existing anchor")
     parser.add_argument("--list", action="store_true", help="list allowed actions")
     parser.add_argument("action", nargs="?", help="action name")
     parser.add_argument("detail", nargs="*", help="KEY=VALUE detail entries")
@@ -135,8 +178,10 @@ def main() -> int:
             print(name)
         return 0
     if args.verify:
-        records = _read_records()
-        print(f"ledger: {len(records)} records verified, chain intact")
+        verify()
+        return 0
+    if args.seal or args.reseal:
+        seal(force=args.reseal)
         return 0
     if not args.action:
         parser.error("an action or --verify is required")
