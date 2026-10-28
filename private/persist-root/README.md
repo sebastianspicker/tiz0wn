@@ -61,6 +61,10 @@ make -C private/persist-root check      # lint + 87 tests + sink repro + busybox
   appears, the hook lands 0755, a second trigger is idempotent, `--revert`
   restores, and a whitespace password (the tracked negative control) delivers
   nothing.
+- `make proof` — the full shape offline: starts the server on loopback, takes
+  its printed payload, verifies the served body against the printed hash,
+  drives the real pinned sink, then runs the installed hook. The only
+  "failure" is the sink's final `/bin/mount`, which does not exist on the Mac.
 - `make busybox` — drives apply/revert through real busybox `ash` in a
   container against a fake TV root (the device is busybox, not GNU; a
   GNU-only flag is invisible to the host tests).
