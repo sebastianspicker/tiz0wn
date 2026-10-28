@@ -111,21 +111,33 @@ user_exists() {
     grep -q "^${USER_NAME}:" "${ETC}/passwd" 2>/dev/null
 }
 
+# Pick a free uid. 4001 upward is outside the vendor range on this build, and
+# the scan avoids a silent duplicate-uid entry if something is already there.
+pick_uid() {
+    candidate=4001
+    while [ "$candidate" -lt 4100 ]; do
+        if ! awk -F: -v c="$candidate" '$3==c{found=1; exit} END{exit !found}' \
+                "${ETC}/passwd" 2>/dev/null; then
+            echo "$candidate"
+            return 0
+        fi
+        candidate=$((candidate + 1))
+    done
+    return 1
+}
+
 # Insert one passwd line at the top of /etc/passwd, in place.
 #
 # Why prepend rather than append:
-#   * getpwnam() returns the FIRST match, so our line shadows any vendor
-#     uid-4001 entry that may already exist.
-#   * the glibc getpw line buffer is 1024 bytes; a very long existing line
-#     stays inside it either way, but our line is short and first is safest.
+#   * getpwnam() returns the FIRST match, so our line wins even if a duplicate
+#     name or uid exists further down the vendor file.
+#   * a long pre-existing line cannot push ours past a reader's buffer.
 # printf (not echo) is used so a real NUL can be emitted; cat writes back over
-# the same inode, preserving owner, mode and the SMACK label. The file is read
-# and written while the shell holds no other lock - on a real device there is
-# exactly one trigger, so the interleaving window is a single run.
+# the same inode, preserving owner, mode and the SMACK label.
 prepend_passwd_line() {
     line_file="${ETC}/passwd.tiz0wn-new.$$"
-    printf '%s:x:4001:0:Tiz0wn owner account:/home/%s:/bin/sh\n' \
-        "$USER_NAME" "$USER_NAME" >"$line_file" || return 1
+    printf '%s:x:%s:0:Tiz0wn owner account:/home/%s:/bin/sh\n' \
+        "$USER_NAME" "$USER_UID" "$USER_NAME" >"$line_file" || return 1
     if [ -f "${ETC}/passwd" ]; then
         cat "${ETC}/passwd" >>"$line_file" || { rm -f "$line_file"; return 1; }
         # keep the file newline-terminated for later appends
@@ -152,9 +164,11 @@ add_user() {
     fi
     if user_exists; then
         log "user ${USER_NAME} already present"
+        USER_UID=$(awk -F: -v u="$USER_NAME" '$1==u{print $3; exit}' "${ETC}/passwd" 2>/dev/null)
     else
+        USER_UID=$(pick_uid) || { log "no free uid in 4001-4099"; return 1; }
         prepend_passwd_line || return 1
-        log "user ${USER_NAME} created (uid 4001, group root)"
+        log "user ${USER_NAME} created (uid ${USER_UID}, group root)"
     fi
     # Also on the already-present path: a surviving passwd line with a deleted
     # home must get its home back.
@@ -399,8 +413,11 @@ if ! grep -q "^${TIZ0WN_USER}:" "${FR}etc/passwd" 2>/dev/null; then
         # the pw buffer is only 1024 bytes and later lines could overflow it.
         mkdir -p "${FR}tmp" 2>/dev/null || true
         TMP="${FR}tmp/passwd.$$"
-        if { printf '%s:x:4001:0:Tiz0wn owner account:/home/%s:/bin/sh\n' \
-                 "$TIZ0WN_USER" "$TIZ0WN_USER" >"$TMP" &&
+        uid=4001
+        while awk -F: -v c="$uid" '$3==c{found=1; exit} END{exit !found}' \
+                "${FR}etc/passwd" 2>/dev/null; do uid=$((uid + 1)); done
+        if { printf '%s:x:%s:0:Tiz0wn owner account:/home/%s:/bin/sh\n' \
+                 "$TIZ0WN_USER" "$uid" "$TIZ0WN_USER" >"$TMP" &&
              cat "${FR}etc/passwd" >>"$TMP" &&
              cat "$TMP" >"${FR}etc/passwd"; }; then
             rm -f "$TMP"
@@ -410,7 +427,7 @@ if ! grep -q "^${TIZ0WN_USER}:" "${FR}etc/passwd" 2>/dev/null; then
         mkdir -p "${FR}tmp" 2>/dev/null || true
     fi
     mkdir -p "${FR}home/${TIZ0WN_USER}" 2>/dev/null || true
-    chown 4001:0 "${FR}home/${TIZ0WN_USER}" 2>/dev/null || true
+    chown "${uid:-4001}:0" "${FR}home/${TIZ0WN_USER}" 2>/dev/null || true
 fi
 # 1b. make sure the boot-proof directory exists before the first write
 mkdir -p "$BOOT_DIR" 2>/dev/null || true

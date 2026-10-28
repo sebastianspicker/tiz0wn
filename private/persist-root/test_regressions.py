@@ -392,3 +392,18 @@ class PayloadHostValidation(unittest.TestCase):
     def test_unreal_octets_are_rejected(self):
         with self.assertRaises(ValueError):
             payload.build_pipe_password(host_ip="999.999.999.999")
+
+
+class UidAllocation(Base):
+    def test_uid_skips_an_occupied_4001(self):
+        (self.sb.root / "etc/passwd").write_text(
+            "root:x:0:0:root:/root:/bin/sh\nvendor:x:4001:4001:v:/home/v:/bin/sh\n",
+            encoding="ascii",
+        )
+        self.apply()
+        line = [l for l in self.sb.passwd().splitlines() if l.startswith("tiz0wn:")][0]
+        self.assertEqual(line.split(":")[2], "4002", "an occupied uid must be skipped")
+
+    def test_new_uid_is_placed_first(self):
+        self.apply()
+        self.assertTrue(self.sb.passwd().startswith("tiz0wn:"))

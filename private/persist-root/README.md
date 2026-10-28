@@ -51,7 +51,7 @@ having no `User=` (root). Rollback is by design: the pre-existing
 ## Offline use
 
 ```bash
-make -C private/persist-root check      # lint + 87 tests + sink repro + busybox run
+make -C private/persist-root check      # lint + 89 tests + sink repro + busybox run
 ```
 
 - `make test` — payload grammar, servable-body contracts, hash vectors,
@@ -167,6 +167,13 @@ and trigger once as above.
 
 `--revert` deliberately needs its own phrase so a mistaken re-trigger is
 visible: the server refuses the setup phrase in revert mode and vice versa.
+
+## The account
+
+`tiz0wn` is created with the first free uid from 4001 upward (the vendor range
+is untouched), group `root`, shell `/bin/sh`, and a `$6$` shadow hash. The
+passwd line is inserted first so `getpwnam` resolves it. It is a normal login
+account: `su tiz0wn`, or `ssh` if an sshd is ever added.
 
 ## Changing the password later
 
