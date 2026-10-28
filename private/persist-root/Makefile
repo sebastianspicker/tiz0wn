@@ -1,6 +1,6 @@
 PYTHON ?= python3
 
-.PHONY: help lint test offline busybox proof repro ledger-verify ledger-chain check all
+.PHONY: help lint test offline busybox proof repro ledger-verify ledger-chain check all pack
 
 help:
 	@printf '%s\n' \
@@ -11,6 +11,7 @@ help:
 	  'make lint           - shellcheck + python compile' \
 	  'make ledger-verify  - verify ledger chain + out-of-band anchor' \
 	  'make ledger-chain   - verify the chain only (anchor may be stale)' \
+	  'make pack           - verified tarball into dist/' \
 	  'make check          - lint + test + offline + ledger-verify'
 
 lint:
@@ -22,7 +23,8 @@ lint:
 	$(PYTHON) -m py_compile \
 	  ledger.py payload.py prelude.py sha512crypt.py serve.py \
 	  test_persist_root.py test_sha512crypt.py test_serve.py test_ledger.py \
-	  test_regressions.py repro/run_offline.py repro/busybox_check.py repro/proof_run.py
+	  test_regressions.py pack.py repro/run_offline.py \
+	  repro/busybox_check.py repro/proof_run.py
 
 test:
 	$(PYTHON) -m unittest discover -s . -p 'test_*.py' -v
@@ -46,5 +48,8 @@ ledger-chain:
 
 check: lint test offline busybox proof ledger-chain
 	@printf '\nall persist-root checks passed; no TV was contacted\n'
+
+pack: check
+	$(PYTHON) pack.py --skip-check
 
 all: check

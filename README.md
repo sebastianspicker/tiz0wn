@@ -13,6 +13,11 @@ shipped script executes that command as root. A bounded live validation on
 $(/usr/bin/id>/tmp/<fresh-marker>)
 ```
 
+That proof stopped there on purpose. The follow-up work in
+[`private/persist-root/`](private/persist-root/) takes the same trigger further
+— an owner account, a boot hook, and a root shell — but has not been run on the
+set yet, so it is offline-proven only.
+
 A fresh two-push classifier proved that the resulting regular file was owned
 by UID 0 and began with `uid=0(root) gid=0(root)`. This is a root-command proof,
 not persistence, a root shell, a firmware modification, or a claim about
@@ -31,7 +36,13 @@ source trace, offline harness, and guarded reproduction contract.
 | Firmware analysis | Exact 2743.0 image decrypted and statically examined; proprietary firmware is not redistributed |
 | Remote PC/CIFS | Command injection through the password field demonstrated as UID 0 on the assessed TV |
 | One-shot harness | Offline audit and loopback RDP/SMB lab complete; the fresh harness has not been run live |
+| Persistence / root shell | Implemented and offline-proven (owner account plus a boot-consumer hook); not yet observed on the TV |
 | Mali CVE-2022-46395 route | Target-specific research remains separate and inconclusive; no Mali root claim |
+
+The persistence work is in [`private/persist-root/`](private/persist-root/):
+a packet that turns the proven sink into a root login and a reboot-surviving
+hook. `make -C private/persist-root check` runs 89 offline tests, a busybox
+run, and a full-shape proof, contacting nothing.
 
 ## Safe local checks
 
@@ -65,6 +76,8 @@ not expose RDP, SMB, SDB, or TV-control ports to the Internet.
 | [`research/remotepc-cifs-root/`](research/remotepc-cifs-root/) | Validated Remote PC/CIFS finding and offline-first one-shot harness |
 | [`docs/firmware-analysis.md`](docs/firmware-analysis.md) | Exact firmware extraction and static-analysis findings |
 | [`research/mali-cve-2022-46395/`](research/mali-cve-2022-46395/) | Separate, firmware-bound Mali research and offline tests |
+| [`private/persist-root/`](private/persist-root/) | Persistent root: account, boot hook, root shell, revert; offline-proven |
+| [`private/persist-root/HANDOFF-SAMSUNG.md`](private/persist-root/HANDOFF-SAMSUNG.md) | Short vendor handoff covering the persistence delta |
 | [`scripts/`](scripts/) | Explicit-target SDB inventory and one-package removal workflow |
 | [`templates/`](templates/) | Baseline, rollback, compatibility, and change records |
 | [`evidence/`](evidence/) | Private run output; identifying evidence is gitignored |

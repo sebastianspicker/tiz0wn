@@ -48,6 +48,13 @@ writable ext4 volume (both static firmware facts), and on `AT-HUB.service`
 having no `User=` (root). Rollback is by design: the pre-existing
 `/opt/etc/parseinfo.sh` is copied to `.pre-tiz0wn` before first write.
 
+## Package
+
+`make pack` runs the whole gate and, only if green, writes a tarball with a
+`MANIFEST.sha256` over the exact bytes. Contents are allowlisted in `pack.py`,
+so caches and run evidence cannot leak. The package is self-testing:
+`tar xzf … && make test` inside it reproduces the suite.
+
 ## Offline use
 
 ```bash

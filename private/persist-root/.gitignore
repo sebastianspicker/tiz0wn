@@ -5,3 +5,5 @@ LEDGER.lock
 evidence/offline-persist-*.json
 # Local run logs
 serve.out
+# Built packages
+dist/
