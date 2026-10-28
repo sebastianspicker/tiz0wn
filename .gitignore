@@ -19,7 +19,9 @@ tv-info*.json
 *.swp
 
 # Private, re-runnable investigation bundle (firmware, third-party tools, raw outputs). Never commit.
-/private/
+# One exception: the persist-root exploit package is small and meant to be reviewed/committed.
+/private/*
+!/private/persist-root/
 
 # Local CVE-2022-46395 build products
 /research/mali-cve-2022-46395/*.o
