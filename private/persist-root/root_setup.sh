@@ -144,6 +144,10 @@ add_user() {
     # ENOSPC/EIO mid-write would otherwise lose /etc/passwd with no recourse.
     if [ ! -f "${ETC}/passwd.pre-tiz0wn" ]; then
         cp -p "${ETC}/passwd" "${ETC}/passwd.pre-tiz0wn" || return 1
+        if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "${ETC}/passwd.pre-tiz0wn" 2>/dev/null | cut -d' ' -f1 \
+                >"${ETC}/passwd.pre-tiz0wn.sha256" 2>/dev/null || true
+        fi
         log "saved /etc/passwd.pre-tiz0wn for manual recovery"
     fi
     if user_exists; then
@@ -180,8 +184,15 @@ set_shadow_hash() {
         log "shadow entry already current"
         return 0
     fi
+    # If the vendor file lacks a final newline, remember that we added one, so
+    # revert can strip it again and leave the file byte-identical.
+    if [ -s "${ETC}/shadow" ] && \
+       [ "$(tail -c 1 "${ETC}/shadow" | od -An -c | tr -d ' \n')" != '\n' ]; then
+        printf '\n' >>"${ETC}/shadow" 2>/dev/null
+        : >"${ETC}/shadow.tiz0wn-nl-added" 2>/dev/null || true
+    fi
     if ! awk -F: -v u="$USER_NAME" -v h="$PWHASH" 'BEGIN{OFS=":"}
-        $1==u { if (!done) { $2=h; $3=h?20000:$3; print; done=1 } ; next }
+        $1==u { if (!done) { $2=h; $3=20000; print; done=1 } ; next }
         { print }
         END { if (!done) print u":"h":20000:0:99999:7:::" }' \
         "${ETC}/shadow" >"${ETC}/shadow.tiz0wn-new" 2>/dev/null; then
@@ -221,10 +232,20 @@ remove_user() {
     fi
     # A readable passwd cannot filter down to nothing; if it did, grep lied.
     if [ ! -s "${ETC}/passwd.tiz0wn-out" ] && [ -s "${ETC}/passwd" ]; then
-        if [ -f "${ETC}/passwd.pre-tiz0wn" ]; then
-            if cp -p "${ETC}/passwd.pre-tiz0wn" "${ETC}/passwd"; then
-                log "passwd restored from the pre-tiz0wn copy"
-            fi
+        # An emptied result means grep lied -- but only trust the backup when it
+        # still is the file we captured (a stale one from an earlier cycle would
+        # silently roll back unrelated changes).
+        fresh=0
+        if [ -f "${ETC}/passwd.pre-tiz0wn.sha256" ] && command -v sha256sum >/dev/null 2>&1; then
+            [ "$(sha256sum "${ETC}/passwd.pre-tiz0wn" 2>/dev/null | cut -d' ' -f1)" = \
+              "$(cat "${ETC}/passwd.pre-tiz0wn.sha256" 2>/dev/null)" ] && fresh=1
+        elif [ -f "${ETC}/passwd.pre-tiz0wn" ]; then
+            fresh=1
+        fi
+        if [ "$fresh" -eq 1 ] && cp -p "${ETC}/passwd.pre-tiz0wn" "${ETC}/passwd"; then
+            log "passwd restored from the pre-tiz0wn copy"
+        else
+            log "passwd filtered to nothing and no fresh backup; left as is"
         fi
     else
         cat "${ETC}/passwd.tiz0wn-out" >"${ETC}/passwd" || {
@@ -239,6 +260,20 @@ remove_user() {
             cat "${ETC}/shadow.tiz0wn-out" >"${ETC}/shadow" ||
                 log "could not write /etc/shadow" || true
             rm -f "${ETC}/shadow.tiz0wn-out"
+            # Undo the trailing newline this package had to add, if it did.
+            if [ -f "${ETC}/shadow.tiz0wn-nl-added" ]; then
+                if [ -s "${ETC}/shadow" ] &&
+                   [ "$(tail -c 1 "${ETC}/shadow" | od -An -c | tr -d ' \n')" = '\n' ]; then
+                    size=$(wc -c <"${ETC}/shadow" 2>/dev/null)
+                    if [ -n "$size" ] && [ "$size" -gt 0 ]; then
+                        dd if="${ETC}/shadow" of="${ETC}/shadow.tiz0wn-trim" bs=1 \
+                            count=$((size - 1)) 2>/dev/null &&
+                            cat "${ETC}/shadow.tiz0wn-trim" >"${ETC}/shadow" &&
+                            rm -f "${ETC}/shadow.tiz0wn-trim"
+                    fi
+                fi
+                rm -f "${ETC}/shadow.tiz0wn-nl-added"
+            fi
             removed=1
         else
             rm -f "${ETC}/shadow.tiz0wn-out"
@@ -249,7 +284,10 @@ remove_user() {
         log "user ${USER_NAME} absent"
     fi
     rm -rf "${ROOT}/home/${USER_NAME}" 2>/dev/null || true
-    [ "$removed" -eq 1 ] && log "user ${USER_NAME} removed"
+    if [ "$removed" -eq 1 ]; then
+        rm -f "${ETC}/passwd.pre-tiz0wn" "${ETC}/passwd.pre-tiz0wn.sha256" 2>/dev/null || true
+        log "user ${USER_NAME} removed"
+    fi
     return 0
 }
 

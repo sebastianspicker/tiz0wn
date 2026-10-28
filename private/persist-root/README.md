@@ -51,7 +51,7 @@ having no `User=` (root). Rollback is by design: the pre-existing
 ## Offline use
 
 ```bash
-make -C private/persist-root check      # lint + 85 tests + repro + ledger chain
+make -C private/persist-root check      # lint + 87 tests + sink repro + busybox run
 ```
 
 - `make test` — payload grammar, servable-body contracts, hash vectors,
@@ -61,6 +61,9 @@ make -C private/persist-root check      # lint + 85 tests + repro + ledger chain
   appears, the hook lands 0755, a second trigger is idempotent, `--revert`
   restores, and a whitespace password (the tracked negative control) delivers
   nothing.
+- `make busybox` — drives apply/revert through real busybox `ash` in a
+  container against a fake TV root (the device is busybox, not GNU; a
+  GNU-only flag is invisible to the host tests).
 - `make ledger-verify` — checks the hash chain **and** the out-of-band
   `LEDGER.head` anchor. `make ledger-chain` checks only the chain, since
   appending legitimately moves the head; re-seal with `--reseal` after

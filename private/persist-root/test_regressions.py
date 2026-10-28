@@ -359,6 +359,26 @@ class CleanRevert(Base):
         self.assertNotIn("tiz0wn:", self.sb.shadow())
 
 
+class ByteExact(Base):
+    def test_revert_restores_shadow_byte_identically(self):
+        (self.sb.root / "etc/shadow").write_text(
+            "root:*:19000:0:99999:7:::", encoding="ascii"   # no trailing newline
+        )
+        before = (self.sb.root / "etc/shadow").read_bytes()
+        self.apply()
+        self.sb.run("--revert")
+        self.assertEqual((self.sb.root / "etc/shadow").read_bytes(), before)
+
+    def test_stale_backup_does_not_undo_a_later_change(self):
+        """A second cycle must not restore a backup from the first one."""
+        self.apply()
+        self.sb.run("--revert")
+        (self.sb.root / "etc/passwd").write_text("", encoding="ascii")
+        self.apply()
+        self.sb.run("--revert")
+        self.assertEqual((self.sb.root / "etc/passwd").read_bytes(), b"")
+
+
 class FailedMarker(Base):
     def test_stale_failed_marker_is_cleared_on_success(self):
         self.apply()
