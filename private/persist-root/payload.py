@@ -103,8 +103,7 @@ HTTP_PATH_RE = re.compile(r"[A-Za-z0-9/._~-]+")
 
 
 def require_host(host_ip: str, port: int, http_path: str) -> None:
-    if not IPV4_RE.fullmatch(host_ip):
-        raise ValueError("host_ip must be a dotted-quad IPv4 literal")
+    canonical_ipv4(host_ip)
     if not (1 <= port <= 65535):
         raise ValueError("port out of range")
     # The path is inserted into the command unquoted inside $(), so anything
@@ -113,15 +112,18 @@ def require_host(host_ip: str, port: int, http_path: str) -> None:
         raise ValueError("http_path must be /[A-Za-z0-9/._~-]+")
 
 
-def canonical_ipv4(host_ip: str) -> str:
-    """Parse a strict IPv4 literal and return its canonical form."""
+def canonical_ipv4(host_ip: str, label: str = "host_ip") -> str:
+    """Parse a strict IPv4 literal (999.x is rejected) and return it canonical."""
     if not IPV4_RE.fullmatch(host_ip):
-        raise ValueError("shell_host must be a dotted-quad IPv4 literal")
+        raise ValueError(f"{label} must be a dotted-quad IPv4 literal")
     import ipaddress
 
-    address = ipaddress.IPv4Address(host_ip)
+    try:
+        address = ipaddress.IPv4Address(host_ip)
+    except ipaddress.AddressValueError as error:
+        raise ValueError(f"{label} must be a dotted-quad IPv4 literal") from error
     if str(address) != host_ip:
-        raise ValueError("shell_host must be a canonical IPv4 literal")
+        raise ValueError(f"{label} must be a canonical IPv4 literal")
     return host_ip
 
 

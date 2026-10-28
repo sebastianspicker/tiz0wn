@@ -20,9 +20,12 @@ pinned model/firmware strings.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import datetime as dt
+import fcntl
 import hashlib
 import json
+import os
 import re
 from pathlib import Path
 
@@ -95,6 +98,19 @@ def _read_records() -> list[tuple[bytes, dict]]:
     return records
 
 
+@contextlib.contextmanager
+def _locked():
+    """Hold an exclusive lock so concurrent appends cannot pick the same sequence."""
+    lock = LEDGER.with_suffix(".lock")
+    descriptor = os.open(lock, os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(descriptor, fcntl.LOCK_EX)
+        yield
+    finally:
+        fcntl.flock(descriptor, fcntl.LOCK_UN)
+        os.close(descriptor)
+
+
 def append(action: str, **details: str) -> dict:
     if action not in ACTIONS:
         raise SystemExit(f"unknown ledger action: {action}")
@@ -109,6 +125,11 @@ def append(action: str, **details: str) -> dict:
     detail_blob = json.dumps(details, sort_keys=True, separators=(",", ":"))
     if len(detail_blob) > MAX_DETAIL_BYTES:
         raise SystemExit("detail blob exceeds its bound")
+    with _locked():
+        return _append_locked(action, details)
+
+
+def _append_locked(action: str, details: dict) -> dict:
     records = _read_records()
     payload = {
         "schema": SCHEMA,
@@ -132,12 +153,16 @@ def append(action: str, **details: str) -> dict:
     return payload
 
 
-def verify() -> None:
+def verify(*, anchor: bool = True) -> None:
     records = _read_records()
+    if not records and not HEAD_FILE.is_file():
+        raise SystemExit("neither LEDGER.jsonl nor LEDGER.head exists; nothing to verify")
     print(f"ledger: {len(records)} records verified, chain intact")
     # The chain alone is only tamper-evident against lazy edits: an attacker
     # who can write the file can recompute it. LEDGER.head holds the head hash
     # out of band (it is separately committed), so a rewrite is visible.
+    if not anchor:
+        return
     head = hashlib.sha256(records[-1][0]).hexdigest() if records else ZERO_HASH
     if HEAD_FILE.is_file():
         anchored = HEAD_FILE.read_text(encoding="ascii").strip()
@@ -166,7 +191,8 @@ def seal(*, force: bool = False) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--verify", action="store_true", help="verify the chain and exit")
+    parser.add_argument("--verify", action="store_true", help="verify chain + anchor and exit")
+    parser.add_argument("--verify-chain", action="store_true", help="verify the chain only")
     parser.add_argument("--seal", action="store_true", help="write the head anchor (refuses to overwrite)")
     parser.add_argument("--reseal", action="store_true", help="overwrite an existing anchor")
     parser.add_argument("--list", action="store_true", help="list allowed actions")
@@ -179,6 +205,10 @@ def main() -> int:
         return 0
     if args.verify:
         verify()
+        return 0
+    if args.verify_chain:
+        # appending legitimately moves the head, so this skips the anchor
+        verify(anchor=False)
         return 0
     if args.seal or args.reseal:
         seal(force=args.reseal)

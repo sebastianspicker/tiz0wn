@@ -51,7 +51,7 @@ having no `User=` (root). Rollback is by design: the pre-existing
 ## Offline use
 
 ```bash
-make -C private/persist-root check      # lint + 75 tests + repro + ledger
+make -C private/persist-root check      # lint + 85 tests + repro + ledger chain
 ```
 
 - `make test` — payload grammar, servable-body contracts, hash vectors,
@@ -61,9 +61,10 @@ make -C private/persist-root check      # lint + 75 tests + repro + ledger
   appears, the hook lands 0755, a second trigger is idempotent, `--revert`
   restores, and a whitespace password (the tracked negative control) delivers
   nothing.
-- `make ledger-verify` — checks the hash chain and the out-of-band
-  `LEDGER.head` anchor. The chain alone only catches lazy edits; anyone who can
-  write the file can recompute it, so the head hash is committed separately.
+- `make ledger-verify` — checks the hash chain **and** the out-of-band
+  `LEDGER.head` anchor. `make ledger-chain` checks only the chain, since
+  appending legitimately moves the head; re-seal with `--reseal` after
+  reviewing the new head.
 
 ## Live use
 
@@ -159,6 +160,12 @@ and trigger once as above.
 
 `--revert` deliberately needs its own phrase so a mistaken re-trigger is
 visible: the server refuses the setup phrase in revert mode and vice versa.
+
+## Changing the password later
+
+Re-running the payload with a different `--password` rewrites the shadow hash.
+No revert is needed and the new password takes effect on the next boot too,
+because the boot hook re-asserts the configured hash.
 
 ## SMACK and boot-hook caveats
 

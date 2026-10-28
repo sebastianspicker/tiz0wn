@@ -54,7 +54,7 @@ def build_prelude(
         raise ValueError("password_hash must be a crypt hash ($6$... / $1$...)")
     if not re.fullmatch(r"[0-9a-f]{16}", token):
         raise ValueError("token must be 16 lowercase hex characters")
-    if shell_host and not payload.canonical_ipv4(shell_host):
+    if shell_host and not payload.canonical_ipv4(shell_host, "shell_host"):
         raise ValueError("shell_host must be a canonical IPv4 literal or empty")
     if shell_port and not _valid_port(shell_port):
         raise ValueError("shell_port must be 1-65535 or empty")

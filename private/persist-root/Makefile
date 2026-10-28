@@ -1,13 +1,14 @@
 PYTHON ?= python3
 
-.PHONY: help lint test offline repro ledger-verify check all
+.PHONY: help lint test offline repro ledger-verify ledger-chain check all
 
 help:
 	@printf '%s\n' \
 	  'make test           - offline unit/contract suite (no TV, no network)' \
 	  'make offline        - end-to-end repro through the pinned sink (loopback only)' \
 	  'make lint           - shellcheck + python compile' \
-	  'make ledger-verify  - verify the hash-chained work ledger' \
+	  'make ledger-verify  - verify ledger chain + out-of-band anchor' \
+	  'make ledger-chain   - verify the chain only (anchor may be stale)' \
 	  'make check          - lint + test + offline + ledger-verify'
 
 lint:
@@ -32,7 +33,10 @@ repro: offline
 ledger-verify:
 	$(PYTHON) ledger.py --verify
 
-check: lint test offline ledger-verify
+ledger-chain:
+	$(PYTHON) ledger.py --verify-chain
+
+check: lint test offline ledger-chain
 	@printf '\nall persist-root checks passed; no TV was contacted\n'
 
 all: check

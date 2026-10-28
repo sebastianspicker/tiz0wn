@@ -270,3 +270,105 @@ class PayloadCharset(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class GrepFailure(Base):
+    """grep -v exit 2 (EIO/ENOSPC) must not silently empty passwd."""
+
+    def _stub(self, script: str) -> None:
+        bindir = self.sb.root / "bin"
+        bindir.mkdir(exist_ok=True)
+        (bindir / "grep").write_text(script, encoding="ascii")
+        (bindir / "grep").chmod(0o755)
+
+    def test_grep_failure_aborts_instead_of_emptying_passwd(self):
+        self.apply()
+        self._stub("#!/bin/sh\nexit 2\n")
+        result = self.sb.run("--revert", TIZ0WN_PATH=f"{self.sb.root}/bin:/usr/bin:/bin")
+        self.assertNotEqual(result.returncode, 0, "grep failure must be reported")
+        self.assertIn("tiz0wn:", self.sb.passwd(), "passwd must not be emptied")
+
+    def test_partial_grep_output_is_not_accepted_alone(self):
+        """A grep that truncates still leaves the other entries visible."""
+        self.apply()
+        self._stub('#!/bin/sh\nexec /usr/bin/grep "$@"\n')
+        result = self.sb.run("--revert", TIZ0WN_PATH=f"{self.sb.root}/bin:/usr/bin:/bin")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("tiz0wn:", self.sb.passwd())
+
+
+class PasswordChange(Base):
+    def test_reapply_without_revert_changes_the_hash(self):
+        self.apply()
+        result = self.apply(TIZ0WN_PWHASH=HASH2)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        lines = [l for l in self.sb.shadow().splitlines() if l.startswith("tiz0wn:")]
+        self.assertEqual(len(lines), 1, "exactly one shadow line")
+        self.assertIn(HASH2, lines[0])
+        self.assertNotIn(HASH, lines[0])
+
+    def test_hook_applies_a_changed_hash(self):
+        self.apply()
+        (self.sb.root / "etc/shadow").write_text(
+            "tiz0wn:$6$old$old:20000:0:99999:7:::\n", encoding="ascii"
+        )
+        subprocess.run(
+            ["/bin/sh", str(self.sb.hook())], capture_output=True, text=True, check=False,
+            input="", env={"PATH": "/usr/bin:/bin", "TIZ0WN_ROOT": str(self.sb.root)},
+        )
+        self.assertIn(HASH, self.sb.shadow())
+
+
+class HomeRepair(Base):
+    def test_reapply_recreates_a_deleted_home(self):
+        self.apply()
+        home = self.sb.root / "home" / "tiz0wn"
+        shutil.rmtree(home, ignore_errors=True)
+        self.apply()
+        self.assertTrue(home.is_dir(), "the home directory must be restored")
+
+
+class HookSentinel(Base):
+    def test_vendor_hook_containing_our_sentinel_is_still_backed_up(self):
+        vendor = "#!/bin/sh\n# tiz0wn-hook-v1\necho VENDOR\n"
+        self.sb.hook().write_text(vendor, encoding="ascii")
+        self.apply()
+        self.assertTrue((self.sb.root / "opt/etc/parseinfo.sh.pre-tiz0wn").is_file())
+        self.sb.run("--revert")
+        self.assertIn("VENDOR", self.sb.hook().read_text(encoding="ascii"))
+
+
+class CleanRevert(Base):
+    def test_revert_leaves_no_debris_and_restores_the_files(self):
+        before_passwd = self.sb.passwd()
+        self.apply()
+        result = self.sb.run("--revert")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.sb.passwd(), before_passwd)
+        # passwd.pre-tiz0wn is a deliberate recovery copy; no *temp* debris may remain
+        names = sorted(p.name for p in (self.sb.root / "etc").iterdir())
+        self.assertEqual(
+            [n for n in names if ".tiz0wn-out" in n or ".tiz0wn-rev" in n or ".tiz0wn-new" in n], []
+        )
+        self.assertLessEqual(set(names), {"passwd", "shadow", "passwd.pre-tiz0wn"})
+
+    def test_revert_drops_an_orphan_shadow_line(self):
+        self.apply()
+        (self.sb.root / "etc/passwd").write_text("root:x:0:0:root:/root:/bin/sh\n", encoding="ascii")
+        self.sb.run("--revert")
+        self.assertNotIn("tiz0wn:", self.sb.shadow())
+
+
+class FailedMarker(Base):
+    def test_stale_failed_marker_is_cleared_on_success(self):
+        self.apply()
+        marker = self.sb.root / "opt/usr/home/owner/share/tmp/sdk_tools"
+        (marker / f"tiz0wn-root-{TOKEN}.FAILED").write_text("old\n", encoding="ascii")
+        self.apply()
+        self.assertEqual(list(marker.glob("*.FAILED")), [])
+
+
+class PayloadHostValidation(unittest.TestCase):
+    def test_unreal_octets_are_rejected(self):
+        with self.assertRaises(ValueError):
+            payload.build_pipe_password(host_ip="999.999.999.999")
