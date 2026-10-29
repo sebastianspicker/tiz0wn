@@ -42,10 +42,14 @@ and no UEP patch. The full procedure, measurements and limits are in
 [`exploits/tiz0wn-root/LIVE-RUN-2026-10-29.md`](exploits/tiz0wn-root/LIVE-RUN-2026-10-29.md).
 
 UEP is not a privilege boundary. Measured as `uid=0`: a copy of bash on tmpfs is
-refused with `EPERM` and `[uep][bash] the file is NOT signed!!`. UEP gates loading
-by content, independently of privilege, so no unsigned binary runs, only scripts
-via `sh -c "$(cat …)"` or a signed binary. Dropbear, custom tooling as processes
-and kernel modules are therefore unavailable even as root.
+refused with `EPERM` and `[uep][bash] the file is NOT signed!!`. The verdict is a
+signature check bound to the **inode**, not to a path or to the bytes: a
+byte-identical copy of a signed binary is refused too. One kernel handler covers
+`execve` and `PROT_EXEC` mappings, and the shells gate script *paths* separately
+through `libkUEPUser`. Neither half is lifted by privilege, so no unsigned binary
+runs and every step is a script invoked by content via `sh -c "$(cat …)"`.
+Dropbear, custom tooling as processes and kernel modules are therefore
+unavailable even as root.
 
 `make -C exploits/tiz0wn-root check` lints the shell and Python and runs the
 loopback rehearsal, without contacting the TV. The test suites, ledger and
@@ -76,6 +80,13 @@ kernel work documents the UEP gates and how to disable them, which this route
 avoids needing. None of the three is a superset, and a reader landing on any of
 them should know the others exist.
 
+One difference the Reach row hides: the entry is not the whole surface. cfloinc's
+chain ends by firing the kernel stage from a loop device at ~60 s, so UEP is down
+at boot and dropbear serves root SSH on `:22` — a booted set is reachable over
+the network. This route has no listener at all: `cmd/in` is `0777`, so anything
+already local at `sdk` can drive root, and nothing else can. Keeping UEP armed is
+what that costs; an agent instead of a listener.
+
 What all three converged on, independently, is the persistence primitive: a
 776-byte `/etc/profile.d/bash_prompt_custom.sh` replaced in place with a same-size
 block write at a per-image offset, backed up byte-exactly, and reached through
@@ -93,9 +104,15 @@ it. metaljay needed the verifier gate and the status global (`0xc01de028`,
 verifier entry and an unstable state from zeroing the global, which is why
 cfloinc used the signed-`/bin/bash` variant. This repo measured the consequence
 directly as `uid=0`: an unsigned ELF on tmpfs returns `EPERM` and `the file is
-NOT signed!!`. UEP is a content and path gate independent of privilege, so being
-root does not let you run a single unsigned binary. No dropbear, no custom
+NOT signed!!`, and a byte-identical copy of a signed binary is refused as well,
+which is the evidence for the inode binding. UEP is independent of privilege, so
+being root does not let you run a single unsigned binary. No dropbear, no custom
 tooling as a process, no kernel modules.
+
+The inode model, and the split between the kernel handler (`execve`,
+`PROT_EXEC`) and the user-space shell gate for script paths, are txtsamu's T6500
+correction. cfloinc flags them as such and marks his own Q70T controls for the
+shell layer as still queued, so the two are kept apart here as well.
 
 That is why this chain keeps UEP armed end to end and pays for it only in style:
 every step is a script invoked by content. Where UEP is disabled, the kernel work
@@ -103,7 +120,7 @@ above already documents how, and its symbols are the reference for the family.
 
 ## Attribution
 
-These three routes are one effort, and each section below is theirs to write.
+These three routes are one effort, and the sections below are theirs to write.
 Thanks to both, and to everyone in issue #1 who tested, corrected and
 cross-checked:
 
@@ -115,20 +132,30 @@ cross-checked:
   reviewed the compatibility wording.
 - [cfloinc](https://github.com/cfloinc/samsung-q70t-tizen-root), the Q70T writeup
   and `persistent-hook/` kit (MIT); the UEP file-loading finding that `sh -c
-  "$(cat …)"` exists to defeat; and the negative result that archive-root is
-  impossible without `/usr/bin/dotnet`.
+  "$(cat …)"` exists to defeat; the negative result that archive-root is
+  impossible without `/usr/bin/dotnet`; and the attribution that keeps the
+  per-inode UEP model with txtsamu rather than folding it into the Q70T work.
 
 `NOTICE.md` keeps the used-versus-investigated distinction and the licenses.
 Where a technique here is theirs, the credit sits on the technique rather than
 only in this section.
 
-Two sections below are reserved for cfloinc and metaljay. Both offered to write
-or review a short section for this README rather than be paraphrased (issue #1,
-28 and 29 October), and each stays empty until its text arrives.
+Two sections below are for cfloinc and metaljay. Both offered to write or review
+a short section for this README rather than be paraphrased (issue #1, 28 and 29
+October). cfloinc's text arrived on 29 October and is reproduced verbatim;
+metaljay's section stays empty until his does.
 
 ## From cfloinc (Q70T)
+As sent in [issue #1](https://github.com/sebastianspicker/tiz0wn/issues/1#issuecomment-6504466699)
+on 29 October:
 
-> _reserved_
+> **QN65Q70TAFXZA (2020 Q70T, NIKEM, Tizen 6.0, kernel 4.1.10, `T-NKMAKUC-2743.0`).** No `/usr/bin/dotnet` host, so archive-root is not applicable; root came from the exFAT USB kernel LPE after the SDB foothold, then a 776-byte in-place `profile.d` patch (same-size replacement, per-image block offset) made it stick. Every hop passes script content (`sh -c "$(cat …)"`) because UEP gates script file loading; the boot hook runs at ~0.73 s, applies 13 runtime masks, fires UEP down from a loop device at ~60 s, and starts dropbear root SSH. Details: https://github.com/cfloinc/samsung-q70t-tizen-root
+
+What is not transferable to the Q60T, in his own terms and confirmed here: the
+offset (`1612972032` on p19 there, `704753664` on p19 here) and the dotnet host
+question. What carried over is the content form and the block surgery, both used
+in this chain. The loop-device UEP-down half did not carry over: on the Q60T UEP
+stays armed and the reach is local, not `:22`.
 
 ## From metaljay (Q90T)
 

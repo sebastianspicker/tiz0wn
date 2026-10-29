@@ -27,6 +27,11 @@ proved:
   content-invocation rule `sh -c "$(cat …)"`, which exists because UEP hooks
   script file loading; and the negative result that archive-root fails without
   `/usr/bin/dotnet`. Method credit, MIT-compatible.
+- txtsamu (T6500 report, via cfloinc's `docs/methodology/06-uep.md`), the
+  per-inode signature model and the split between the kernel handler
+  (`execve`, `PROT_EXEC`) and the user-space `libkUEPUser` script gate. Used for
+  the wording and the reasoning here, not for code; the T6500 controls for the
+  shell layer are queued on both sides.
 - Luminger, `samsung-tv-usb-root` (AGPL-3.0), the USB route used by metaljay.
   Referenced, not vendored.
 - chris-ritsen/`samsung-tv-root` (Unlicense) and its levkropp fork, and

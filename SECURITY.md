@@ -20,12 +20,14 @@ do not need this repository for that.
 
 ## What is public and what is not
 
-Public: the chain, the scripts, the measurements, the offset arithmetic, the
-rollback path, the live session record.
+Public, and named deliberately: the model `GQ55Q60TGUXZG` and firmware
+`T-NKLDEUC-2743.0`; the chain, the scripts, the measurements, the offset
+arithmetic, the rollback path, the live session record.
 
-Not public: no firmware image, no device identifiers. Addresses, the model
-string, the MAC, the crypt salt and the test password are placeholders, and
-`evidence/` is gitignored. See `NOTICE.md` for the placeholder convention.
+Not public: no firmware image, and no device identifiers — the serial, MAC,
+DUID and tokens never appear. The LAN addresses, the MAC, the crypt salt and
+the test password are placeholders, and `evidence/` is gitignored. See
+`NOTICE.md` for the placeholder convention.
 
 ## Dependencies and trust
 
