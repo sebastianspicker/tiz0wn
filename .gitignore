@@ -11,6 +11,17 @@ config/tv.env
 *-private.*
 tv-info*.json
 
+# Ledgers and tests are local-only: histories churn and the suites are large.
+LEDGER.jsonl
+LEDGER.head
+LEDGER.lock
+test_*.py
+test_*.c
+/exploits/*/tests/
+
+/exploits/*/runs/
+/exploits/*/dist/
+
 # Local agent handoff, isolated builds, and diagnostic traces
 .agents/
 
@@ -18,32 +29,8 @@ tv-info*.json
 .DS_Store
 *.swp
 
-# Private, re-runnable investigation bundle (firmware, third-party tools, raw outputs). Never commit.
-# One exception: the persist-root exploit package is small and meant to be reviewed/committed.
-/private/*
-!/private/persist-root/
-
-# Local CVE-2022-46395 build products
-/research/mali-cve-2022-46395/*.o
-/research/mali-cve-2022-46395/q60t-46395-plan
-/research/mali-cve-2022-46395/q60t-root-payload
-/research/mali-cve-2022-46395/q60t-profile-payload-test
-/research/mali-cve-2022-46395/q60t-chain-core-test
-/research/mali-cve-2022-46395/*.dSYM/
-/research/mali-cve-2022-46395/managed/bin/
-/research/mali-cve-2022-46395/managed/obj/
-/research/mali-cve-2022-46395/preflight/bin/
-/research/mali-cve-2022-46395/preflight/obj/
-/research/mali-cve-2022-46395/profile-probe/bin/
-/research/mali-cve-2022-46395/profile-probe/obj/
-/research/mali-cve-2022-46395/*.wgt
-
-# Local CVE-2021-44828 build products
-/research/mali-cve-2021-44828/q60t-cve-2021-44828-poc*
-/research/mali-cve-2021-44828/*.wgt
-/research/mali-cve-2021-44828/*.dSYM/
-/research/mali-cve-2021-44828/managed/bin/
-/research/mali-cve-2021-44828/managed/obj/
+# Local firmware bundle (image, third-party tools, raw outputs). Never commit.
+/fw-analysis/
 
 # Python bytecode cache
 __pycache__/

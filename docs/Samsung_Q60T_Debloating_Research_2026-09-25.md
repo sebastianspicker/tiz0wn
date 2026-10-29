@@ -1,21 +1,22 @@
 # Samsung Q60T: Debloating, SDB Access, Rooting and Firmware Research
 
-**Target:** Samsung GQ55Q60TGUXZG
-**Installed firmware:** T-NKLDEUC-2743.0, BT-S
-**Research date:** 25 September 2026
-**Assessment type:** Public-source research, review of the supplied photographs, and selected source-code inspection.
-**Live-device status:** No connection to the television, exploit execution, application removal, firmware extraction, or performance measurement was performed for this report.
+Target: Samsung GQ55Q60TGUXZG
+Installed firmware: T-NKLDEUC-2743.0, BT-S
+Research date: 25 September 2026
+Assessment type: Public-source research, review of the supplied photographs, and selected source-code inspection.
+Live-device status: No connection to the television, exploit execution, application removal, firmware extraction, or performance measurement was performed for this report.
 
-> **Principal conclusion:** There is a credible route to investigate **partial application debloating without root**, and there are genuine published Samsung rooting techniques. However, this research did not establish a working, model-specific full-debloat or root procedure for **GQ55Q60TGUXZG running T-NKLDEUC-2743.0**. The useful next step is a controlled storage/performance baseline and read-only SDB inventory — not a bulk uninstall script or an older firmware flash.
+> Principal conclusion: There is a credible route to investigate partial application debloating without root, and there are genuine published Samsung rooting techniques. However, this research did not establish a working, model-specific full-debloat or root procedure for GQ55Q60TGUXZG running T-NKLDEUC-2743.0. The useful next step is a controlled storage/performance baseline and read-only SDB inventory; not a bulk uninstall script or an older firmware flash.
 
-> **Editorial note (rewrite pass, 2026-09-26):** This document is unchanged in substance from the 25 September 2026 original; it has been restructured and tightened for a security-researcher audience, with an evidence ledger added up front. One factual pointer has been added: §2.4 states that the firmware archive was "not downloaded or decrypted" *at the time of this research*. A companion document, [`firmware-analysis.md`](firmware-analysis.md), dated one day later, subsequently downloaded, hash-verified and decrypted that exact image and disassembled the historical root primitive. That later work is summarized and cross-referenced from §11; it does not change any conclusion in this document, and no finding from it has been imported into this document's own evidence base below.
+> Editorial note (rewrite pass, 2026-09-26): This document is unchanged in substance from the 25 September 2026 original; it has been restructured and tightened for a security-researcher audience, with an evidence ledger added up front. One factual pointer has been added: §2.4 states that the firmware archive was "not downloaded or decrypted" *at the time of this research*. A companion document, [`firmware-analysis.md`](firmware-analysis.md), dated one day later, subsequently downloaded, hash-verified and decrypted that exact image and disassembled the historical root primitive. That later work is summarized and cross-referenced from §11; it does not change any conclusion in this document, and no finding from it has been imported into this document's own evidence base below.
 
-> **Later result (2026-09-27):** Subsequent work traced Remote PC SMB
+> Later result (2026-09-27): Subsequent work traced Remote PC SMB
 > credentials into a privileged `mount.smb.sh` shell boundary and demonstrated
 > one bounded `id` command as UID 0 on the exact 2743.0 owner-controlled TV.
-> That result postdates this preserved research snapshot; see
-> [`research/remotepc-cifs-root/`](../research/remotepc-cifs-root/) and
-> [`From debloating to tiz0wn`](from-debloating-to-tiz0wn.md).
+> That result postdates this preserved research snapshot; root is now proven to
+> survive reboots. See [`DISCLOSURE.md`](DISCLOSURE.md) for the finding and
+> [`LIVE-RUN-2026-10-29.md`](../exploits/tiz0wn-root/LIVE-RUN-2026-10-29.md) for
+> the working chain.
 
 ## Contents
 
@@ -29,12 +30,12 @@
 7. [Controlled removal of unwanted applications](#7-controlled-removal-of-unwanted-applications)
 8. [TizenBrew and other application-level alternatives](#8-tizenbrew-and-other-application-level-alternatives)
 9. [Review of publicly available debloating tools](#9-review-of-publicly-available-debloating-tools)
-10. [Rooting research and compatibility analysis](#10-rooting-research-and-compatibility-analysis)
-11. [A firmware-specific reverse-engineering plan](#11-a-firmware-specific-reverse-engineering-plan)
+10. [Rooting research and compatibility](#10-rooting-research-and-compatibility)
+11. [Reverse-engineering plan](#11-reverse-engineering-plan)
 12. [Recovery, persistence and hardware boundaries](#12-recovery-persistence-and-hardware-boundaries)
 13. [Network isolation and external-player strategy](#13-network-isolation-and-external-player-strategy)
 14. [Recommended investigation roadmap](#14-recommended-investigation-roadmap)
-15. [Evidence templates and final assessment](#15-evidence-templates-and-final-assessment)
+15. [Templates and what would justify stronger claims](#15-templates-and-what-would-justify-stronger-claims)
 16. [Sources and provenance](#16-sources-and-provenance)
 - [Glossary](#glossary)
 
@@ -43,27 +44,27 @@
 ## TL;DR and evidence ledger
 
 Tizen debloating is not one operation. It splits into at least six independent
-intervention levels — ordinary menu cleanup, SDB (Smart Development Bridge)
+intervention levels; ordinary menu cleanup, SDB (Smart Development Bridge)
 management commands, TizenBrew/sideloading, the `sdk`-account shell reachable
 through a published SDB vulnerability, root/execution-policy bypass, and full
-firmware/OS replacement — each with a different evidence base and a different
+firmware/OS replacement; each with a different evidence base and a different
 wall. On
-the exact target of this report, **GQ55Q60TGUXZG running T-NKLDEUC-2743.0, no
-working full-debloat or root procedure exists as of this research.** ADB is
+the exact target of this report, GQ55Q60TGUXZG running T-NKLDEUC-2743.0, no
+working full-debloat or root procedure exists as of this research. ADB is
 the wrong mental model throughout: this platform is Tizen 5.5 / Chromium M69,
 controlled through SDB, and Android tooling/debloat lists do not transfer
-(§1.2). Nothing below was tested against a physical device — everything is
+(§1.2). Nothing below was tested against a physical device; everything is
 public-source research, review of supplied photographs, and inspection of
 publicly available source code.
 
-The table grades each load-bearing claim in this document. **First-hand/high**
+The table grades each load-bearing claim in this document. First-hand/high
 means the researcher directly inspected the primary artifact (vendor
 documentation, or the actual source file cited) and the claim follows
-directly from it. **Inferred/medium** means the claim combines multiple
+directly from it. Inferred/medium means the claim combines multiple
 sourced facts or reasons from documented platform architecture.
-**Hedged/low** means a single third-party report — often on different
-hardware or firmware — is being extrapolated to this target with an explicit
-caveat. **Untested** means the report proposes a procedure or hypothesis that
+Hedged/low means a single third-party report; often on different
+hardware or firmware; is being extrapolated to this target with an explicit
+caveat. Untested means the report proposes a procedure or hypothesis that
 was deliberately not executed.
 
 | # | Finding | Grade | Basis |
@@ -71,15 +72,15 @@ was deliberately not executed.
 | 1 | Debloating splits into distinct, non-interchangeable intervention levels (menu cleanup → SDB management → `sdk` shell → root → OS replacement) | Inferred/medium (analytical framework, not a device test) | §1.1, §5.2 |
 | 2 | ADB/Android tooling and debloat lists do not apply to this Tizen platform | First-hand/high (vendor's own platform documentation) | §1.2 [S02] [S03] |
 | 3 | Ordinary-menu app removal and cache/data clearing exist as supported operations, but some preinstalled apps cannot be removed this way | First-hand/high (Samsung's own support documentation) | §4.2–4.3 [S07] [S08] |
-| 4 | Partial non-root app enumeration/removal via SDB is possible even with the ordinary shell disabled | Hedged/low — single first-person report on a **2018 UE55NU7400 / Tizen 4.0**, not reproduced on this target | §1.3, §7.1 [S24] |
-| 5 | A published SDB command-injection vulnerability (SVE-2025-50109) yields an `sdk`-account shell on some Tizen 5.5–9 builds | Inferred/medium — vendor-tested on a different Tizen 5.5 model (UN43TU700DFXZA); 2743.0 status unverified | §10.3 [S15] |
-| 6 | A historical Q60T root chain (Synacktiv) reached UID 0 and bypassed UEP (unsigned-execution protection) via a browser entry point and `/dev/sdp_mem` | Hedged/low for present applicability — demonstrated on a different firmware family (T-NKLAKUC 2201.0, 2021/2022); source of the decryptor inspected first-hand but not run against this image | §10.2 [S16] [S17] [S18] |
-| 7 | Modern volatile root chains exist for QN90B and QN90F | Untested/not-applicable here — maintainer explicitly scopes these to different hardware and firmware families | §10.4 [S22] [S23] |
-| 8 | A reviewed third-party debloating tool (SAWSUBE) defaults unknown packages to "safe to remove" and can fall back to the first connected SDB device | First-hand/high — direct source inspection at a pinned revision | §9.2 [S25] |
-| 9 | No working full-debloat or root procedure exists for GQ55Q60TGUXZG/2743.0 | This document's own explicit conclusion — a stated absence of evidence, not a claim of impossibility | §15.4–15.5 |
+| 4 | Partial non-root app enumeration/removal via SDB is possible even with the ordinary shell disabled | Hedged/low; single first-person report on a 2018 UE55NU7400 / Tizen 4.0, not reproduced on this target | §1.3, §7.1 [S24] |
+| 5 | A published SDB command-injection vulnerability (SVE-2025-50109) yields an `sdk`-account shell on some Tizen 5.5–9 builds | Inferred/medium; vendor-tested on a different Tizen 5.5 model (UN43TU700DFXZA); 2743.0 status unverified | §10 3 [S15] |
+| 6 | A historical Q60T root chain (Synacktiv) reached UID 0 and bypassed UEP (unsigned-execution protection) via a browser entry point and `/dev/sdp_mem` | Hedged/low for present applicability; demonstrated on a different firmware family (T-NKLAKUC 2201.0, 2021/2022); source of the decryptor inspected first-hand but not run against this image | §10 2 [S16] [S17] [S18] |
+| 7 | Modern volatile root chains exist for QN90B and QN90F | Untested/not-applicable here; maintainer explicitly scopes these to different hardware and firmware families | §10 4 [S22] [S23] |
+| 8 | A reviewed third-party debloating tool (SAWSUBE) defaults unknown packages to "safe to remove" and can fall back to the first connected SDB device | First-hand/high; direct source inspection at a pinned revision | §9.2 [S25] |
+| 9 | No working full-debloat or root procedure exists for GQ55Q60TGUXZG/2743.0 | This document's own explicit conclusion; a stated absence of evidence, not a claim of impossibility | §15.4–15.5 |
 | 10 | The firmware archive was not downloaded or decrypted for this report | Self-reported limitation; see editorial note above and §11 for the subsequent, separately documented empirical follow-up | §2.4 |
 
-**What would move each wall** is addressed inline: §5.3 (closed ordinary shell is not a complete inventory of access), §7.4 (an exit code of 0 is not evidence of removal — verify the after-state), §10.5–10.6 (a 2026-dated advisory tested elsewhere does not confirm this firmware), and §11.3 (decrypting a container is not authenticating a modified one, still less booting it).
+What would move each wall is addressed inline: §5.3 (closed ordinary shell is not a complete inventory of access), §7.4 (an exit code of 0 is not evidence of removal; verify the after-state), §10 (a 2026-dated advisory tested elsewhere does not confirm this firmware), and §11.3 (decrypting a container is not authenticating a modified one, still less booting it).
 
 ---
 
@@ -102,15 +103,15 @@ The evidence underlying these distinctions is discussed in Sections 5–12. Sams
 
 ### 1.2 ADB is not the right interface
 
-Samsung identifies this generation as a **Tizen** platform. Its TV development workflow uses **SDB** (Smart Development Bridge, the Tizen counterpart to Android's `adb`), not Android Debug Bridge. Android package commands, APK-based launchers, Magisk procedures and Android debloat lists therefore do not constitute a procedure for this TV. Similar command-line appearances do not make the operating systems interchangeable. [S02] [S03]
+Samsung identifies this generation as a Tizen platform. Its TV development workflow uses SDB (Smart Development Bridge, the Tizen counterpart to Android's `adb`), not Android Debug Bridge. Android package commands, APK-based launchers, Magisk procedures and Android debloat lists therefore do not constitute a procedure for this TV. Similar command-line appearances do not make the operating systems interchangeable. [S02] [S03]
 
 ### 1.3 The most useful new finding is partial management access
 
-A first-person report on a **2018 UE55NU7400 / Tizen 4.0** describes successful application enumeration and package removal despite ordinary shell access being disabled. That is evidence against the blanket claim that "closed shell means no useful SDB commands." It is **not** confirmation that every protected app on this Q60T is removable. [S24]
+A first-person report on a 2018 UE55NU7400 / Tizen 4.0 describes successful application enumeration and package removal despite ordinary shell access being disabled. That is evidence against the blanket claim that "closed shell means no useful SDB commands." It is not confirmation that every protected app on this Q60T is removable. [S24]
 
 ### 1.4 Modern Samsung rooting is real, but model specificity matters
 
-The 2026 `samsung-tv-root` project documents working chains for specific **QN90B and QN90F** devices. It does not provide a Q60T profile. Its existence improves the research landscape; it does not justify selecting another model's exploit profile for this television. [S22]
+The 2026 `samsung-tv-root` project documents working chains for specific QN90B and QN90F devices. It does not provide a Q60T profile. Its existence improves the research landscape; it does not justify selecting another model's exploit profile for this television. [S22]
 
 ### 1.5 Separate the daily-use goal from the research goal
 
@@ -135,15 +136,15 @@ These goals can coexist. A successful experiment is not merely "root obtained": 
 
 The serial number, network addresses, Bluetooth identifiers and service-specific device IDs in the photographs are deliberately omitted. They are unnecessary for public compatibility research.
 
-The event log shows entries labelled as CEC commands. Those entries do **not** establish an unwanted background workload. Likewise, the entries dated 1970 do not, by themselves, prove firmware corruption or compromise. The screenshots are identification evidence, not a performance trace.
+The event log shows entries labelled as CEC commands. Those entries do not establish an unwanted background workload. Likewise, the entries dated 1970 do not, by themselves, prove firmware corruption or compromise. The screenshots are identification evidence, not a performance trace.
 
 ### 2.2 What Samsung currently lists
 
-The exact-model Samsung support page identifies this as a **55-inch Q60T from 2020**. Its download metadata lists `T-NKLDEUC.zip`, version **2743.0**, with a file-modification date of **15 September 2026** and a displayed size of **1286.57 MB**. The installed version matches that listing on the research date. [S01]
+The exact-model Samsung support page identifies this as a 55-inch Q60T from 2020. Its download metadata lists `T-NKLDEUC.zip`, version 2743.0, with a file-modification date of 15 September 2026 and a displayed size of 1286.57 MB. The installed version matches that listing on the research date. [S01]
 
 The listing date is not necessarily the firmware's compilation date or first over-the-air availability date. It also does not establish which individual vulnerabilities were fixed. Recommending "update to the latest firmware" without noticing that match would add little value.
 
-Samsung's generation table maps **2020 TVs to Tizen 5.5 and Chromium M69**. This is the appropriate platform baseline, but it is not a live measurement of this TV's kernel, browser binary, security backports or exact patch state. A firmware number such as 2743.0 is not a Tizen major-version number. [S02]
+Samsung's generation table maps 2020 TVs to Tizen 5.5 and Chromium M69. This is the appropriate platform baseline, but it is not a live measurement of this TV's kernel, browser binary, security backports or exact patch state. A firmware number such as 2743.0 is not a Tizen major-version number. [S02]
 
 ### 2.3 Information still missing
 
@@ -155,9 +156,9 @@ In particular, this report does not invent a RAM capacity, processor model, main
 
 Primary sources were prioritized: Samsung's own documentation, original security research, maintainer documentation, and selected source files. Source inspection is distinguished from maintainer-reported hardware tests.
 
-The firmware archive itself was **not downloaded or decrypted** for this report. Samsung's model page exposed the manual filenames and download metadata, but the model-specific manual PDFs were not successfully retrieved for page-by-page inspection. Menu guidance therefore uses accessible Samsung support articles and acknowledges model/version differences.
+The firmware archive itself was not downloaded or decrypted for this report. Samsung's model page exposed the manual filenames and download metadata, but the model-specific manual PDFs were not successfully retrieved for page-by-page inspection. Menu guidance therefore uses accessible Samsung support articles and acknowledges model/version differences.
 
-*(Editorial note: a companion document, [`firmware-analysis.md`](firmware-analysis.md), dated 26 September 2026 — the day after this research — subsequently obtained the exact archive, verified it against the download page, decrypted it, and performed static analysis including disassembly of the historical root driver. See §11 below for the cross-reference; the empirical results live in that document, not this one.)*
+*(Editorial note: a companion document, [`firmware-analysis.md`](firmware-analysis.md), dated 26 September 2026; the day after this research; subsequently obtained the exact archive, verified it against the download page, decrypted it, and performed static analysis including disassembly of the historical root driver. See §11 below for the cross-reference; the empirical results live in that document, not this one.)*
 
 The Synacktiv research presentation was examined, including relevant diagram pages. No firmware-recovery method was validated on physical hardware. No speedup percentage is claimed.
 
@@ -185,25 +186,25 @@ These are proposed diagnostic tests, not findings about this device.
 
 The methodological point, not the exact click-timing procedure, is what matters here: measure the same operations (open Settings, change volume, open Home, switch HDMI source, launch the suspect app, cold restart) before and after each intervention, at a fixed number of warm/cold repetitions per operation. A phone recording of the remote action and screen is an adequate practical timer; the goal is repeatability, not laboratory precision.
 
-Record the **median and range**, not a persuasive-looking percentile derived from a handful of trials. An application that fails to load is a failure, not a fast response. Keep the remote, source device, network arrangement and test order stable; record whether the TV was freshly restarted or had been in use for hours; avoid repeated full factory resets as a benchmarking technique.
+Record the median and range, not a persuasive-looking percentile derived from a handful of trials. An application that fails to load is a failure, not a fast response. Keep the remote, source device, network arrangement and test order stable; record whether the TV was freshly restarted or had been in use for hours; avoid repeated full factory resets as a benchmarking technique.
 
 ### 3.3 Compare online and genuinely offline conditions
 
 First compare the normal configuration with the TV disconnected from both Ethernet and Wi-Fi, using an HDMI source that can continue independently. Test basic controls and Home, not whether an internet application can stream while offline.
 
-**Offline is not the same experiment as firewalled.** A firewall that silently drops requests can push the application down a different timeout/retry path than a genuinely disconnected network. Treat improvement or regression under blocking as an observed result for that condition, not a universal prediction.
+Offline is not the same experiment as firewalled. A firewall that silently drops requests can push the application down a different timeout/retry path than a genuinely disconnected network. Treat improvement or regression under blocking as an observed result for that condition, not a universal prediction.
 
-Where possible, use an **A–B–A comparison**: baseline, intervention, then restore the baseline. A repeatable change is stronger evidence than a single "feels faster" observation immediately after rebooting.
+Where possible, use an A–B–A comparison: baseline, intervention, then restore the baseline. A repeatable change is stronger evidence than a single "feels faster" observation immediately after rebooting.
 
 ### 3.4 Interpret the result before escalating
 
-If only Home and streaming apps are slow, focus on application data, network-dependent behavior and bypassing Smart Hub. If volume, Settings and source switching are also consistently slow, application deletion may not address the cause — that warrants a simpler operating configuration and further diagnostics before any destructive software modification.
+If only Home and streaming apps are slow, focus on application data, network-dependent behavior and bypassing Smart Hub. If volume, Settings and source switching are also consistently slow, application deletion may not address the cause; that warrants a simpler operating configuration and further diagnostics before any destructive software modification.
 
 ---
 
 ## 4. Reversible cleanup with the ordinary menus
 
-### 4.1 Cold restart — not merely standby
+### 4.1 Cold restart: not merely standby
 
 Power off normally, disconnect the mains plug for approximately a minute, reconnect, and test. Samsung distinguishes this non-erasing restart from a factory reset. Never disconnect power during an actual firmware update. [S11] [S13]
 
@@ -211,31 +212,31 @@ A temporary improvement after restart is worth recording, but it does not identi
 
 ### 4.2 Inspect storage before removing anything
 
-Menu path (German UI, as photographed): **Einstellungen → Unterstützung → Gerätepflege → Speicher verwalten**.
+Menu path (German UI, as photographed): Einstellungen → Unterstützung → Gerätepflege → Speicher verwalten.
 
-Record the displayed free space, application sizes, and which apps expose **Details anzeigen**, **Cache leeren**, **Daten löschen** or deletion. Samsung documents this general workflow, but its current cache article illustrates newer software; individual controls may differ on this Q60T. [S07]
+Record the displayed free space, application sizes, and which apps expose Details anzeigen, Cache leeren, Daten löschen or deletion. Samsung documents this general workflow, but its current cache article illustrates newer software; individual controls may differ on this Q60T. [S07]
 
-Start with a problematic optional application. Clearing cache targets temporary files; clearing application data is more disruptive and may remove saved setup and logins — preserve credentials first. Do not repeatedly clear useful caches merely to maximize the free-space display. [S07]
+Start with a problematic optional application. Clearing cache targets temporary files; clearing application data is more disruptive and may remove saved setup and logins; preserve credentials first. Do not repeatedly clear useful caches merely to maximize the free-space display. [S07]
 
 ### 4.3 Remove genuinely optional applications
 
-Path: **Home → Apps → Einstellungen/App-Einstellungen → application → Löschen**, where available. Samsung notes that some preinstalled applications cannot be removed through the normal interface. Removing an item from the Home row is not the same as uninstalling it. [S08]
+Path: Home → Apps → Einstellungen/App-Einstellungen → application → Löschen, where available. Samsung notes that some preinstalled applications cannot be removed through the normal interface. Removing an item from the Home row is not the same as uninstalling it. [S08]
 
-Choose applications you recognize and do not need; preserve an easy reinstall path before removal. App auto-update and firmware updating are separate controls — changing one is not proof that the other has been disabled. [S08] [S13]
+Choose applications you recognize and do not need; preserve an easy reinstall path before removal. App auto-update and firmware updating are separate controls; changing one is not proof that the other has been disabled. [S08] [S13]
 
 ### 4.4 Reduce automatic Smart Hub entry
 
-Under **Einstellungen → Allgemein → Smart-Funktionen**, switch off automatic Smart Hub startup and automatic startup of the last-used app. Samsung documents these controls for this style of interface. They change startup behavior, not ownership of the operating system or all background execution. [S09]
+Under Einstellungen → Allgemein → Smart-Funktionen, switch off automatic Smart Hub startup and automatic startup of the last-used app. Samsung documents these controls for this style of interface. They change startup behavior, not ownership of the operating system or all background execution. [S09]
 
 This is especially useful when an HDMI player provides the everyday interface. Removing shortcuts is a usability improvement, not memory recovered.
 
 ### 4.5 Handle a broken application before resetting everything
 
-For a recommended app with a greyed-out Delete button, Samsung's troubleshooting article suggests **Reinstall** where offered — a repair experiment, not removal. A **Smart Hub reset** is a later option because it signs out all the apps, not only the troublesome one. [S10]
+For a recommended app with a greyed-out Delete button, Samsung's troubleshooting article suggests Reinstall where offered; a repair experiment, not removal. A Smart Hub reset is a later option because it signs out all the apps, not only the troublesome one. [S10]
 
-Path: **Unterstützung → Eigendiagnose → Smart Hub zurücksetzen**, with Eigendiagnose possibly nested inside Gerätepflege. Use the current on-screen path and your own PIN; Samsung's default is `0000` unless changed. Record settings and login requirements first. [S10]
+Path: Unterstützung → Eigendiagnose → Smart Hub zurücksetzen, with Eigendiagnose possibly nested inside Gerätepflege. Use the current on-screen path and your own PIN; Samsung's default is `0000` unless changed. Record settings and login requirements first. [S10]
 
-A **full factory reset** is more disruptive and should follow, not precede, the simpler tests. Samsung says it removes downloaded apps, accounts and settings. Its developer FAQ also distinguishes a full reset — which can change the **DUID** (device unique identifier) — from a Smart Hub reset. That can matter for development certificates tied to a device identifier. [S11] [S12]
+A full factory reset is more disruptive and should follow, not precede, the simpler tests. Samsung says it removes downloaded apps, accounts and settings. Its developer FAQ also distinguishes a full reset; which can change the DUID (device unique identifier); from a Smart Hub reset. That can matter for development certificates tied to a device identifier. [S11] [S12]
 
 ### 4.6 Optional services: change supported settings, not undocumented internals
 
@@ -255,7 +256,7 @@ Normal certificate setup uses author and distributor certificates. Keep signing 
 
 ### 5.2 There are multiple independent access boundaries
 
-For research purposes, use the following model — this is the analytical spine of the rest of this document:
+For research purposes, use the following model; this is the analytical spine of the rest of this document:
 
 | Boundary | Question to establish | Why it matters |
 |---|---|---|
@@ -275,7 +276,7 @@ This is an analytical framework derived from the distinct boundaries visible in 
 
 Bishop Fox demonstrated consumer TVs where a normal SDB shell was blocked and a root-enable request was denied, yet package-installation handling remained reachable. An older-model debloating report separately describes a working application-list dispatcher. Test the relevant capability instead of treating the ordinary-shell result as a complete inventory of access. [S15] [S24]
 
-Conversely, an accepted management request does not imply unrestricted file access. A capability flag indicating file **push** does not promise arbitrary **pull**, and an accepted uninstall does not prove that system partitions are writable.
+Conversely, an accepted management request does not imply unrestricted file access. A capability flag indicating file push does not promise arbitrary pull, and an accepted uninstall does not prove that system partitions are writable.
 
 ### 5.4 Local remote-control APIs are another interface entirely
 
@@ -296,13 +297,13 @@ Find the TV's current address through its menu or your router's client list. Kee
 | TV IP used by `sdb connect` | The television's address |
 | Host PC IP in Developer Mode | The investigating computer's address |
 
-Enable Developer Mode from **Apps/App Settings**, enter **12345** using the physical or on-screen numeric keypad, set the computer's address, confirm, and restart the TV. Samsung documents this procedure. It is not the service menu. [S03]
+Enable Developer Mode from Apps/App Settings, enter 12345 using the physical or on-screen numeric keypad, set the computer's address, confirm, and restart the TV. Samsung documents this procedure. It is not the service menu. [S03]
 
 Use a trusted network segment. The developer-host address restriction is not a substitute for isolating an untrusted LAN. Never port-forward development or remote-control ports from the internet.
 
 ### 6.2 Explicit-target connection
 
-The following commands are a **proposed collection procedure**, not commands executed during this report. The example IP is not an address inferred from the photographs. Use Bash on Linux/macOS, or translate the variables to PowerShell on Windows.
+The following commands are a proposed collection procedure, not commands executed during this report. The example IP is not an address inferred from the photographs. Use Bash on Linux/macOS, or translate the variables to PowerShell on Windows.
 
 ```bash
 # Set these to your actual installed tool and television address.
@@ -319,7 +320,7 @@ mkdir -p tv-evidence
 "$SDB" devices
 ```
 
-Check that the listed device corresponds to the intended TV, and use its exact SDB serial in later commands — the TCP serial commonly takes the `IP:26101` form shown above. **Do not fall back to the first connected device.** Samsung's CLI documentation explicitly distinguishes target names and serial selectors. [S03] [S04]
+Check that the listed device corresponds to the intended TV, and use its exact SDB serial in later commands; the TCP serial commonly takes the `IP:26101` form shown above. Do not fall back to the first connected device. Samsung's CLI documentation explicitly distinguishes target names and serial selectors. [S03] [S04]
 
 ### 6.3 Query capabilities and the management application list
 
@@ -329,7 +330,7 @@ After confirming the target:
 "$SDB" -s "$TV_SERIAL" capability \
   > tv-evidence/capability.txt 2>&1
 
-# Community-observed TV management command; may be unsupported on this build.
+# Community-observed TV management command: may be unsupported on this build.
 "$SDB" -s "$TV_SERIAL" shell 0 applist \
   > tv-evidence/applist.txt 2>&1
 ```
@@ -368,7 +369,7 @@ There is an important exception for an intentionally installed tool with runtime
 
 An ordinary-menu deletion restriction and the behavior of the development package manager are not necessarily identical. The older NU7400 investigation reports removing preinstalled apps through SDB. That justifies checking this Q60T's behavior, but not assuming that every rejection can or should be bypassed. [S24]
 
-The initial scope should be **one recognizable, optional, reinstallable application**. It should not be the launcher, app store, account framework, tuner, settings application or an unidentified Samsung/Tizen service.
+The initial scope should be one recognizable, optional, reinstallable application. It should not be the launcher, app store, account framework, tuner, settings application or an unidentified Samsung/Tizen service.
 
 ### 7.2 Important correction: application ID and package ID are not interchangeable
 
@@ -377,7 +378,7 @@ There is a genuine documentation/tooling trap:
 | Interface | Identifier described by the relevant source |
 |---|---|
 | Direct `sdb uninstall` in the NU7400 report | Package ID |
-| Samsung's TV-specific `tizen uninstall -p` documentation | **Application ID**, despite the option being called `--pkgid` |
+| Samsung's TV-specific `tizen uninstall -p` documentation | Application ID, despite the option being called `--pkgid` |
 | Generic debloat-tool implementations | May send a package ID and assume their installed CLI handles it |
 
 Samsung explicitly distinguishes its TV CLI behavior from the common Tizen CLI. A guide that says "always strip the app suffix" or "all `-p` arguments are package IDs" is therefore not a reliable universal procedure. [S04] [S24] [S25]
@@ -386,7 +387,7 @@ Before using either route, establish the tool version, the actual identifier map
 
 Do not derive IDs by blindly splitting at the first dot. Package and application relationships must come from actual metadata. Multiple application components can belong to one package; removing the package may affect more than the visible app.
 
-### 7.3 Removal templates — not a ready-made removal list
+### 7.3 Removal templates: not a ready-made removal list
 
 These lines are intentionally commented out. They are alternative interfaces, not a sequence to run until one succeeds.
 
@@ -411,7 +412,7 @@ If no live inventory is available, record that limitation. "The command returned
 
 ### 7.5 A conservative classification policy
 
-Use a positive allowlist: **identified optional application + known package relationship + no required shared function + known restoration route**. Unknown means do not remove.
+Use a positive allowlist: identified optional application + known package relationship + no required shared function + known restoration route. Unknown means do not remove.
 
 Samsung/Tizen naming prefixes can justify caution, but a random-looking store identifier does not prove that a package is expendable. Account extensions and other infrastructure can also be packaged as applications. Do not treat a short blocklist as a dependency analysis.
 
@@ -423,11 +424,11 @@ Samsung/Tizen naming prefixes can justify caution, but a random-looking store id
 
 TizenBrew provides an application environment for custom apps and modified web experiences, including TizenTube. It is useful when the goal is to replace a particular app experience, not to remove the entire Samsung operating system. [S20]
 
-The installation documentation states support for **Tizen 3.0 / 2017 and newer**, placing the Q60T generation within its stated range. That is a project compatibility statement, not a recorded installation on this exact firmware. The preferred route is **TizenBrew Installer Desktop**; the former USB Demo Package route is marked deprecated because the required Samsung service was shut down. [S21]
+The installation documentation states support for Tizen 3.0 / 2017 and newer, placing the Q60T generation within its stated range. That is a project compatibility statement, not a recorded installation on this exact firmware. The preferred route is TizenBrew Installer Desktop; the former USB Demo Package route is marked deprecated because the required Samsung service was shut down. [S21]
 
 ### 8.2 Developer-mode configuration is part of the design
 
-The desktop setup begins with the investigating computer as Host PC IP. The manual and rebuilding instructions subsequently set that value to **`127.0.0.1`**. This distinction matters: localhost is not the computer's address, and changing it can prevent the computer from reconnecting until the configuration is changed again. Follow the currently selected installation method. [S21]
+The desktop setup begins with the investigating computer as Host PC IP. The manual and rebuilding instructions subsequently set that value to `127.0.0.1`. This distinction matters: localhost is not the computer's address, and changing it can prevent the computer from reconnecting until the configuration is changed again. Follow the currently selected installation method. [S21]
 
 Do not claim that turning Developer Mode off is always compatible with the installed workflow. Conversely, do not leave external development access enabled indefinitely without a reason.
 
@@ -459,7 +460,7 @@ Use it to formulate testable questions. Do not inherit its broader package-safet
 
 Source inspected: `backend/services/debloat_service.py` at revision `db3d943dbad8803deaedcd8c5b5644995302debf`.
 
-The following are observations of that file, **not a full security audit or a claim of malicious intent**. [S25]
+The following are observations of that file, not a full security audit or a claim of malicious intent. [S25]
 
 | Observed implementation | Practical concern |
 |---|---|
@@ -474,167 +475,113 @@ These are reasons not to use this revision as an unattended, trusted Q60T debloa
 
 ### 9.3 Similar names and impressive interfaces are weak compatibility evidence
 
-The TPTRoot repository found during searching targets **Tizen phones**, with a reported Z1/DirtyCow path — not a Q60T TV solution. [S26]
+The TPTRoot repository found during searching targets Tizen phones, with a reported Z1/DirtyCow path; not a Q60T TV solution. [S26]
 
 Likewise, this investigation did not establish a compatible SamyGO installation or an Android/custom-Linux image for the exact target. That is an evidence gap, not a claim that future porting is impossible.
 
-Evaluate tools by exact target coverage, inspected behavior, recovery design and reproducible results — not screenshots, stars, an "AI-assisted" label, or a large catalogue of package names.
+Evaluate tools by exact target coverage, inspected behavior, recovery design and reproducible results; not screenshots, stars, an "AI-assisted" label, or a large catalogue of package names.
 
 ---
 
-## 10. Rooting research and compatibility analysis
+## 10. Rooting research and compatibility
 
-### 10.1 Evidence map
+### 10.1 What other research covers
 
-| Research path | Reported target or scope | Access demonstrated by the source | Status for GQ55Q60TGUXZG / 2743.0 |
-|---|---|---|---|
-| Synacktiv Q60T chain | Historical Q60T research presented in 2021/2022 | Browser entry, kernel escalation, root and execution-policy work | Same product family, but no established current-firmware compatibility |
-| Bishop Fox SDB injection | Tested Tizen 5.5/7/8/9 environments, including physical TVs | Command execution as `sdk` | Relevant entry-point lead; not verified here |
-| QN90B chain | QN55QN90BAFXZA, T-PTMAKUC-1602.3 | Volatile root through a device-driver memory primitive | Different firmware family and hardware assumptions |
-| QN90F chain | Specific QN90F devices, firmware 1203.0/1301.0 | Volatile root using a Mali-G510 path | Different target; not a Q60T exploit profile |
-| New Q60T port combining an available entry point with a compatible escalation | Proposed investigation only | Nothing demonstrated on this TV | Requires separate evidence for every stage |
-
-The rows summarize the named authors' results. None was reproduced on this television during this investigation. [S15] [S16] [S17] [S22] [S23]
-
-### 10.2 Synacktiv: the strongest historical match to the product family
-
-Synacktiv published an actual Q60T exploit repository, including an example that reaches UID 0, firmware-analysis tooling and presentation material. Its firmware-decryption example uses **T-NKLAKUC_2201.0**, a different firmware family from the European **T-NKLDEUC**. An example archive used for decryption is not necessarily the build used to validate every exploit stage. [S16]
-
-The presentation describes a **V8 entry point associated with CVE-2020-6383**, a kernel escalation involving **`/dev/sdp_mem`**, and separate handling of Samsung's **UEP (unsigned-execution protection)**. It also discusses security-context constraints. Those details are valuable starting points for comparative analysis, not universal payload parameters. [S17]
-
-For a present-day port, verify whether the relevant component still exists, whether its implementation remains vulnerable, whether the starting process can access it, and whether the target architecture and memory assumptions match. A device node name alone answers none of the latter questions.
-
-Do not copy historical addresses or offsets into a current build. The difference between a useful research lead and a working exploit is the evidence that makes each assumption valid for the target.
-
-### 10.3 Bishop Fox: a newer initial-access lead, but not root
-
-Bishop Fox's **24 February 2026** advisory describes **SVE-2025-50109**, command injection through SDB package-installation handling. Preconditions include Developer Mode and access from the configured development-host address. Its physical-device testing includes a **UN43TU700DFXZA with Tizen 5.5**. The demonstrated account is `sdk`, not root. [S15]
-
-The publication does not verify `T-NKLDEUC-2743.0`. Neither "published in 2026" nor "tested on Tizen 5.5" resolves whether the code on this particular TV is vulnerable.
-
-An eventual bounded proof of this entry point should establish only the intended harmless result, record the actual identity, and clean up its temporary state. A successful callback would establish command execution — not safe system debloating, persistence or unrestricted native execution.
-
-**A preflight that uses injected commands is active exploitation.** It should not be described as a read-only version check just because the commands executed afterward only read metadata.
-
-### 10.4 QN90B/QN90F: important developments, not interchangeable exploits
-
-The newer `chris-ritsen/samsung-tv-root` project documents a shared SDB entry point followed by target-dependent escalation: a **`/dev/sdp_pqe_fdet`** path on QN90B and a **Mali-G510 r48p0 / CVE-2025-0072** path on QN90F. Its root state is volatile; a computer can reacquire it after the TV restarts. [S22]
-
-The QN90B reproduction note is especially useful conceptually: it specifies firmware-family, architecture, kernel, device-access and memory-layout requirements. It also treats UEP as a distinct boundary, with its fixed-address operation restricted more narrowly than root acquisition. [S23]
-
-For this Q60T, the conclusion is straightforward: **do not select `qn90b`, select `qn90f`, or bypass their compatibility checks merely to see what happens**. The useful contribution is the methodology and separation of stages — not an available Q60T target.
-
-### 10.5 Historical patch evidence argues against version-name shortcuts
-
-Samsung's public security history lists V8 and driver patches affecting the **T-NKLDEUC** family, including entries under August 2021. Later entries also describe changes to debug-information and command exposure. The short bulletin descriptions do not establish a precise patch map for the current binary. [S19]
-
-This is why an old Chromium baseline does not mean all vulnerabilities from that Chromium era remain exploitable. Conversely, a recently dated firmware download does not prove that a particular research path is closed.
-
-Searching the vendor bulletin for the number `50109` can also return **SVE-2019-50109**, which is not **SVE-2025-50109**. Preserve the full identifier. No exact public mapping from the newer SDB advisory to firmware 2743.0 was established in this review. [S15] [S19]
-
-### 10.6 A defensible Q60T research hypothesis
-
-A possible investigation is:
-
-**working low-privilege entry point → verified access to an applicable kernel surface → target-correct escalation → individually tested, reversible changes**.
-
-The attractive hypothesis is that a newer SDB entry point might replace the historical browser entry point. However, changing the starting account can change permissions and security labels. A driver accessible to a browser process in one build might be inaccessible to `sdk` in another.
-
-Treat this as a sequence of falsifiable questions. If the first candidate escalation is patched or inaccessible, record that finding and investigate another specific, evidence-supported candidate rather than trying unrelated payloads at random.
-
----
-
-## 11. A firmware-specific reverse-engineering plan
-
-**Status update (editorial, not part of the original 25 September research):** the plan below was written before the archive existed on disk. Steps 11.1–11.4 have since been executed empirically and documented separately in [`firmware-analysis.md`](firmware-analysis.md), dated 26 September 2026 — one day after this document. That companion document independently obtained the exact `T-NKLDEUC.zip` build, hash-verified it, decrypted `upgrade.msd` using Synacktiv's published decryptor (§11.3 below), extracted the VDFS4 rootfs, and disassembled the historical `sdp_mem`/`sdp_hwmem` root primitive (§11.5's driver-comparison question). Its headline conclusion — the firmware's AES key is unrotated (a confidentiality finding, not a root or signature break) and the arbitrary-physical-memory primitive is closed at the driver level by a whitelist-containment and kernel-region-intersection check — does not change any statement in this document; if anything it confirms §11.3's prediction that decryption and authentication are separate questions, and that a driver comparison (§11.4) rather than a version string would be needed to resolve access. The plan text below is preserved as originally written, since it correctly anticipated what that later work would need to establish.
-
-### 11.1 Start with the exact, official artifact
-
-Obtain the firmware through the support page for **GQ55Q60TGUXZG**, not a forum mirror or another region's similarly named model. Record the displayed version, URL, retrieval date, archive size and a locally calculated hash. The current listing is described in §2. [S01]
-
-Example host-side hashing commands after downloading the file:
-
-```bash
-# Linux:
-sha256sum T-NKLDEUC.zip
-
-# macOS alternative:
-shasum -a 256 T-NKLDEUC.zip
-```
-
-These commands had not been run on an actual firmware archive at the time of this report. A hash identifies the file you examined and detects later changes; without an independently trusted reference, it is not by itself proof of authenticity.
-
-An unversioned filename can later point to a different release. Record embedded metadata as well as the download-page label. Preserve an untouched copy and analyze a separate working copy.
-
-### 11.2 Inspect before executing or extracting broadly
-
-Use an isolated analysis environment. Review archive members, lengths, compression ratios and paths before extraction. Reject unexpected traversal paths and impose extraction-size limits. Do not execute firmware files merely because their names resemble ordinary Linux programs.
-
-The immediate objective is an artifact inventory:
-
-| Artifact or property | Question | Useful result |
+| Path | Scope | Status for GQ55Q60TGUXZG / 2743.0 |
 |---|---|---|
-| Outer archive | Which members and paths are present? | Exact container inventory |
-| Firmware metadata | Which family, version and internal build are identified? | A target-specific fingerprint |
-| Container header | Does it match a supported parser format? | Evidence for or against tool applicability |
-| Cryptographic descriptors | What is encrypted and what is signed? | Separate confidentiality and authenticity boundaries |
-| Extracted executables, if legitimately obtained | Architecture, dependencies, relevant functions? | Static analysis inputs |
-| Kernel and drivers, if available | Versions and actual access-check implementation? | Candidate-specific compatibility evidence |
+| Synacktiv Q60T chain | 2021/22 Q60T research: browser entry, kernel escalation, UEP work | same family, no established current-firmware compatibility |
+| Bishop Fox SDB injection (SVE-2025-50109) | tested on Tizen 5.5/7/8/9, including physical TVs | gives `sdk`, not root; useful entry lead |
+| QN90B chain | `T-PTMAKUC-1602.3`, volatile root via a driver primitive | different family and hardware assumptions |
+| QN90F chain | 1203.0/1301.0, Mali-G510 / CVE-2025-0072 | different target, not a Q60T profile |
 
-This was a proposed work plan at the time of this report; the corresponding cells were not populated with results here because the archive had not been acquired. (See the editorial status note above for the subsequent, separately documented work that did populate them.)
+None of these was reproduced here. The lesson from all four is that a product
+name, a shared Linux version, or a recent publication date settles nothing:
+verify that the component exists, that its implementation is still vulnerable,
+that the starting account can reach it, and that the memory assumptions match.
+Do not copy historical addresses into a current build.
 
-### 11.3 What the existing decryptor establishes — and what it does not
+The specific trap worth naming: changing the entry point changes the account and
+therefore permissions and security labels. A driver reachable from a browser
+process on one build need not be reachable from `sdk` on another. UEP is also a
+boundary of its own, separate from UID, and the QN90B notes argue the same. [S15]
+[S16] [S17] [S19] [S22] [S23]
 
-Source inspection of Synacktiv's `firmware/decrypt.py` shows a parser expecting **`MSDU11`** (the magic/format identifier of Samsung's firmware container), AES-related processing, and descriptors including **`SecureDowngradeDesc`** and **`OURSAValidationDesc`** — type-length-value (TLV) encoded records within the decrypted header. The source is useful for understanding the historical container. It had not been validated against this current archive at the time of this report. [S18]
+The defensible hypothesis is a sequence of falsifiable questions: working entry
+point, then verified access to an applicable surface, then a target-correct
+escalation, then one reversible change at a time. When a candidate turns out
+patched or unreachable, record it and pick another supported candidate rather
+than firing unrelated payloads.
 
-A matching header would establish only an initial format resemblance. The key material, descriptor layout, integrity checks or packaging may differ. A parser exception is not proof of an unbreakable format, and successful output is not proof that every byte has been authenticated or interpreted correctly.
+### 10.2 Patches, versions and shortcuts
 
-Keep three questions separate:
+Samsung's bulletin lists V8 and driver patches against the T-NKLDEUC family,
+including August 2021 entries. Short descriptions do not yield a patch map for a
+current binary, so an old Chromium baseline does not mean that era's bugs are
+live, and a recent download date does not mean a path is closed. `50109` alone
+also matches SVE-2019-50109; keep the full identifier.
 
-**Can the contents be read? Can a modified package be authenticated? Will the device boot and operate correctly after accepting it?**
+## 11. Reverse-engineering plan
 
-These are different problems. Decrypting or re-encrypting a firmware payload does not supply Samsung's signing authority or establish a supported route to flash it.
+> Written before the archive existed. Steps 11.1 to 11.4 were then executed and
+> are documented in [`firmware-analysis.md`](firmware-analysis.md), which found
+> the key unrotated (confidentiality only) and the physical-memory primitive
+> closed at the driver level. The plan is kept because it anticipated what that
+> work needed.
 
-### 11.4 Compare the relevant implementation, not only version strings
+### 11.1 Get the exact official artifact
 
-A useful static investigation would prioritize the components involved in the proposed access path: SDB request dispatch and installation handling; the vulnerable operation described by the advisory; candidate kernel-driver access checks; and execution/security-policy configuration.
+From the model's support page, not a mirror or another region's similarly named
+model. Record version, URL, date, size and a local hash. The hash identifies what
+you examined; without an independent reference it is not authenticity. An
+unversioned filename can later point elsewhere, so record embedded metadata too
+and keep an untouched copy.
 
-For a suspected kernel path, document architecture, module or built-in placement, device permissions, applicable security labels, and the exact operation that would be exercised. A reused product name or a shared Linux version is insufficient.
+### 11.2 Inspect before executing
 
-Where a known vulnerable and known fixed implementation can be obtained, compare the relevant function and bounds/permission checks. Absence of an informative version string is not an excuse to claim that two binaries are equivalent.
+Review members, lengths, ratios and paths before extraction. Reject traversal
+paths and cap extraction size. Do not execute firmware files because their names
+look like ordinary programs. The immediate objective is an inventory: which
+members exist, which family and build are identified, whether the container
+parses, and which parts are encrypted versus signed.
 
-Samsung's historical patch records can prioritize what to inspect, but should not replace the binary comparison. [S19]
+### 11.3 Separate the three questions
 
-### 11.5 Investigate system overhead only after obtaining suitable visibility
+Can the contents be read? Can a modified package be authenticated? Will the
+device boot after accepting it? Decrypting or re-encrypting supplies neither
+signing authority nor a flashing route. A parser exception is not proof of an
+unbreakable format, and successful output is not proof that every byte was
+authenticated.
 
-Even a successful root port should first be used for **observation**, not deletion. Record the process tree, resource usage over a bounded interval, startup relationships, service dependencies and existing persistent configuration. Collect only what is needed; account tokens and DRM secrets are not part of a performance baseline.
+### 11.4 Compare implementation, not version strings
 
-For every proposed component change, answer:
+Prioritise SDB dispatch, the advisory's operation, the candidate driver's access
+checks and the execution policy. Document architecture, module or built-in
+placement, permissions, labels, and the exact operation exercised. Where a
+vulnerable and a fixed implementation can both be obtained, diff the check
+itself.
 
-| Question | Required evidence |
-|---|---|
-| Is the component actually active? | A process/service observation, not only an installed package |
-| Does it contribute meaningful overhead? | Repeated CPU, memory, I/O or latency evidence |
-| What depends on it? | Callers, service relationships or controlled functional testing |
-| Can it be changed temporarily? | A non-persistent setting or narrowly scoped reversible operation |
-| Does the change improve the original symptom? | Before/after measurements using the same protocol |
-| Can the change be undone from outside the broken interface? | A validated recovery path appropriate to that change |
+### 11.5 Use root for observation first
 
-A stopped service that continuously restarts, or leaves callers waiting, might make the TV worse. "Samsung-branded" is not an architectural role and is not a removal criterion.
+Record the process tree, resource use over a bounded interval, startup
+relationships and existing persistence before deleting anything. For each
+proposed change, require: evidence the component is active, evidence it costs
+something, its dependencies, a temporary form of the change, before/after
+measurement of the original symptom, and a recovery path from outside the broken
+interface. A service that restarts in a loop can make things worse. Branding is
+not an architectural role.
 
-### 11.6 Native applications and firmware replacement are different projects
+### 11.6 A native app is not a firmware replacement
 
-An alternative application can use the existing system's display and playback infrastructure. Replacing the operating system would additionally require a usable boot path and working support for the panel, graphics, video decoding, sound, input, power management and any other retained functions.
-
-No tested custom-OS image or full replacement procedure for this exact configuration was established. A generic ARM Linux image, Android image or firmware from a different TV is not a substitute for that missing integration work.
-
----
+An alternative app can reuse the existing display and playback stack. Replacing
+the OS additionally needs a boot path and working panel, graphics, decode,
+audio, input and power management. No tested custom-OS image exists for this
+configuration, and a generic ARM or Android image is not a substitute.
 
 ## 12. Recovery, persistence and hardware boundaries
 
 ### 12.1 A factory reset is not a universal undo button
 
-Samsung documents resets of user settings and Smart Hub data, but its developer FAQ explicitly says **firmware downgrade and forced firmware updates are not supported**. A factory reset is not a return to the software version shipped in 2020. [S11] [S12]
+Samsung documents resets of user settings and Smart Hub data, but its developer FAQ explicitly says firmware downgrade and forced firmware updates are not supported. A factory reset is not a return to the software version shipped in 2020. [S11] [S12]
 
 Do not assume that a USB upgrade will reinstall the same version, repair arbitrary root-level changes, restore boot metadata or recover a non-booting television. A supported update mechanism and an emergency recovery mechanism are different capabilities.
 
@@ -657,17 +604,17 @@ This table is a decision rule, not an assurance that the latter recovery capabil
 
 The newer root research demonstrates a useful distinction between volatile access and a host that reacquires access. That approach avoids claiming a permanent bootloader unlock. [S22] [S23]
 
-For a first Q60T investigation, persistent boot hooks should be avoided entirely. A short-lived experiment that disappears after a restart is easier to bound than an unsupported system service that runs on every boot. Nevertheless, "volatile" does not make a kernel write harmless — it still needs target-correct validation.
+For a first Q60T investigation, persistent boot hooks should be avoided entirely. A short-lived experiment that disappears after a restart is easier to bound than an unsupported system service that runs on every boot. Nevertheless, "volatile" does not make a kernel write harmless; it still needs target-correct validation.
 
 ### 12.4 Service-menu shortcuts are not the recommended path
 
 Do not substitute undocumented service-menu settings for a supported app cleanup. Settings affecting panel configuration, region, calibration, power behavior or recovery can have consequences unrelated to bloatware. This review did not establish a safe collection of such changes for this exact model and firmware.
 
-Keep **Anynet+/HDMI-CEC** separate from internet smart services when evaluating what to retain. The event log already shows CEC-labelled activity; it does not justify switching off a useful control path.
+Keep Anynet+/HDMI-CEC separate from internet smart services when evaluating what to retain. The event log already shows CEC-labelled activity; it does not justify switching off a useful control path.
 
 ### 12.5 Hardware work is a separate escalation
 
-Board identification, serial-console research and flash analysis could be useful if software-only investigation reaches a well-defined limit. They require the **actual board revision**, measured electrical characteristics and a recovery plan; the retail model name does not provide a verified header pinout.
+Board identification, serial-console research and flash analysis could be useful if software-only investigation reaches a well-defined limit. They require the actual board revision, measured electrical characteristics and a recovery plan; the retail model name does not provide a verified header pinout.
 
 A serial header, if present, is not proof of an interactive root console or an unlocked bootloader. Do not assume a voltage, pin assignment or write-capable flash procedure from a photograph of a similar board.
 
@@ -679,7 +626,7 @@ Opening a television also exposes a mains-powered device with potentially hazard
 
 ### 13.1 The lowest-complexity way to avoid most Smart Hub interaction
 
-The subject of this research owns an **Apple TV** and uses a **Flint 2/OpenWrt-based network**; their current connection to this television is not assumed.
+The subject of this research owns an Apple TV and uses a Flint 2/OpenWrt-based network; their current connection to this television is not assumed.
 
 A practical trial is to use the Apple TV as the application platform, turn off Samsung's automatic Smart Hub/last-app entry, and disconnect the television itself from the network, keeping the external player's network access intact. Apple documents television/receiver power and volume control through its remote, including HDMI-CEC where supported and IR alternatives. [S09] [S28]
 
@@ -687,7 +634,7 @@ This bypasses the Samsung app experience. It does not remove Tizen, improve ever
 
 ### 13.2 An HDMI source alone does not establish privacy
 
-The 2024 research paper *Watching TV with the Second-Party* observed automatic content recognition (**ACR**) activity on Samsung/LG test televisions, including HDMI use. It also found that opting out stopped ACR-server traffic in its experiments. These were particular tested configurations, not an examination of this German Q60T/2743.0. [S27]
+The 2024 research paper *Watching TV with the Second-Party* observed automatic content recognition (ACR) activity on Samsung/LG test televisions, including HDMI use. It also found that opting out stopped ACR-server traffic in its experiments. These were particular tested configurations, not an examination of this German Q60T/2743.0. [S27]
 
 The practical implication is to review optional viewing-information and advertising consent settings and measure traffic if the TV remains online. An external player plus an online television is not equivalent to an offline television.
 
@@ -701,7 +648,7 @@ The practical implication is to review optional viewing-information and advertis
 
 Define the desired router policy before writing configuration; its current firmware, zones, IPv6 routing and the television's active interface were not inspected for this report, so this report does not supply a guessed UCI/nftables script.
 
-GL.iNet documents client blocking by MAC address. Do not assume that a generic **Block client** button means "deny WAN but retain SDB and all LAN services" — verify its actual effect in the installed router software. [S29]
+GL.iNet documents client blocking by MAC address. Do not assume that a generic Block client button means "deny WAN but retain SDB and all LAN services"; verify its actual effect in the installed router software. [S29]
 
 ### 13.4 Proposed policy for a LAN-only research setup
 
@@ -736,179 +683,159 @@ Do not automatically reconnect the TV indefinitely just to check for updates, or
 
 ## 14. Recommended investigation roadmap
 
-### Phase A — Establish the symptom and baseline
+### Phase A: Establish the symptom and baseline
 
-**Inputs:** The television as currently configured; Manage Storage; a short list of required functions.
+Inputs: The television as currently configured; Manage Storage; a short list of required functions.
 
-**Work:** Record storage and app sizes; distinguish basic-control latency from Home/app latency; perform a genuine cold restart; compare online and offline HDMI operation.
+Work: Record storage and app sizes; distinguish basic-control latency from Home/app latency; perform a genuine cold restart; compare online and offline HDMI operation.
 
-**Completion evidence:** A short results table, photographs of relevant non-identifying storage screens, and a concrete statement such as "Settings is responsive but Home is slow online." Avoid a conclusion phrased only as "the whole TV is bad."
+Completion evidence: A short results table, photographs of relevant non-identifying storage screens, and a concrete statement such as "Settings is responsive but Home is slow online." Avoid a conclusion phrased only as "the whole TV is bad."
 
-**Decision:** If the daily-use problem is solved by a simpler configuration, further reverse engineering becomes optional rather than a prerequisite for using the TV.
+Decision: If the daily-use problem is solved by a simpler configuration, further reverse engineering becomes optional rather than a prerequisite for using the TV.
 
-### Phase B — Ordinary cleanup and one change at a time
+### Phase B: Ordinary cleanup and one change at a time
 
-**Inputs:** Phase A observations and the actual menu options.
+Inputs: Phase A observations and the actual menu options.
 
-**Work:** Clear a relevant cache, remove optional apps through the supported UI, change automatic startup behavior, and retest. Use a Smart Hub reset only when the evidence suggests a persistent app-environment problem and login recovery is prepared. [S07] [S08] [S09] [S10]
+Work: Clear a relevant cache, remove optional apps through the supported UI, change automatic startup behavior, and retest. Use a Smart Hub reset only when the evidence suggests a persistent app-environment problem and login recovery is prepared. [S07] [S08] [S09] [S10]
 
-**Completion evidence:** Before/after results and a record of each change. Do not bundle ten interventions into an unexplained "optimization."
+Completion evidence: Before/after results and a record of each change. Do not bundle ten interventions into an unexplained "optimization."
 
-### Phase C — Read-only development capability inventory
+### Phase C: Read-only development capability inventory
 
-**Inputs:** A trusted computer, exact TV address and installed official development tools.
+Inputs: A trusted computer, exact TV address and installed official development tools.
 
-**Work:** Follow §6. Record tool version, capabilities and real app-list output. Establish whether the management dispatcher works independently of ordinary shell access.
+Work: Follow §6. Record tool version, capabilities and real app-list output. Establish whether the management dispatcher works independently of ordinary shell access.
 
-**Completion evidence:** Raw logs retained privately and a redacted compatibility summary. An unsupported app-list command is a valid result.
+Completion evidence: Raw logs retained privately and a redacted compatibility summary. An unsupported app-list command is a valid result.
 
-**Stop condition:** Ambiguous device identity, unexpected target selection, or a tool that offers only a static catalogue instead of evidence from the device.
+Stop condition: Ambiguous device identity, unexpected target selection, or a tool that offers only a static catalogue instead of evidence from the device.
 
-### Phase D — A single controlled optional-app removal
+### Phase D: A single controlled optional-app removal
 
-**Inputs:** Positive identification of an optional app, resolved package/application identifiers, and a real restoration path.
+Inputs: Positive identification of an optional app, resolved package/application identifiers, and a real restoration path.
 
-**Work:** Validate tool semantics using a disposable development app when necessary. Remove one selected optional app, then verify inventory, storage, behavior and persistence under the defined reboot/network checks. [S04]
+Work: Validate tool semantics using a disposable development app when necessary. Remove one selected optional app, then verify inventory, storage, behavior and persistence under the defined reboot/network checks. [S04]
 
-**Completion evidence:** A precise app-specific result. Do not convert one success into a universal removal list.
+Completion evidence: A precise app-specific result. Do not convert one success into a universal removal list.
 
-**Stop condition:** Uncertain dependencies, unexpected disappearance of other components, or no way to restore the selected application.
+Stop condition: Uncertain dependencies, unexpected disappearance of other components, or no way to restore the selected application.
 
-### Phase E — Exact-firmware static analysis
+### Phase E: Exact-firmware static analysis
 
-**Inputs:** Official archive, immutable original copy, calculated hash and an isolated analysis environment.
+Inputs: Official archive, immutable original copy, calculated hash and an isolated analysis environment.
 
-**Work:** Establish format, build information and parser applicability; inspect relevant components; compare specific vulnerability conditions. No TV writes are needed for this stage.
+Work: Establish format, build information and parser applicability; inspect relevant components; compare specific vulnerability conditions. No TV writes are needed for this stage.
 
-**Completion evidence:** A compatibility matrix with concrete supporting artifacts. "This looks like a Q60T firmware" is not sufficient.
+Completion evidence: A compatibility matrix with concrete supporting artifacts. "This looks like a Q60T firmware" is not sufficient.
 
 *(As noted in §11, this phase has since been executed and documented in [`firmware-analysis.md`](firmware-analysis.md).)*
 
-### Phase F — Bounded active research, only after the preceding evidence
+### Phase F: Bounded active research, only after the preceding evidence
 
-**Inputs:** An explicitly chosen entry point, known prerequisites, cleanup procedure and acceptable recovery risk.
+Inputs: An explicitly chosen entry point, known prerequisites, cleanup procedure and acceptable recovery risk.
 
-**Work:** Establish only the initial access claimed, capture identity/context, then assess escalation separately. If root is obtained, begin with resource observation and a reversible experiment — not system-file deletion.
+Work: Establish only the initial access claimed, capture identity/context, then assess escalation separately. If root is obtained, begin with resource observation and a reversible experiment; not system-file deletion.
 
-**Completion evidence:** Exact model/build, method, access level, limitations, changes made and recovery outcome.
+Completion evidence: Exact model/build, method, access level, limitations, changes made and recovery outcome.
 
-**Stop condition:** Failed compatibility checks, unstable behavior, unbounded memory operations, or an operation whose recovery depends on an untested assumption.
+Stop condition: Failed compatibility checks, unstable behavior, unbounded memory operations, or an operation whose recovery depends on an untested assumption.
 
 ---
 
-## 15. Evidence templates and final assessment
+## 15. Templates and what would justify stronger claims
 
-### 15.1 Device and collection record
-
-Keep raw identifiers private. A shareable record can use this structure:
+Shareable record, with identifiers kept out:
 
 ```text
 Date:
 Model: GQ55Q60TGUXZG
-Displayed firmware: T-NKLDEUC-2743.0, BT-S
+Displayed firmware: T-NKLDEUC-2743.0
 Network mode: online / physically offline / LAN-only
 Required functions:
 Slow operations:
-Manage Storage free space:
-Largest optional apps:
+Manage Storage free space / largest optional apps:
 SDB tool version:
 Exact target verified: yes / no
 Capability query: succeeded / refused / unsupported / not tested
 Application enumeration: live result / refused / unsupported / not tested
-Normal shell: not tested / closed / available
 Actions performed:
 Rollback performed or available:
-Identifiers and credentials redacted: yes / no
+Identifiers redacted: yes / no
 ```
 
-Do not replace "not tested" with an assumed result. Keep a successful enumeration distinct from a preloaded catalogue.
+Never replace "not tested" with an assumed result, and keep a live enumeration
+distinct from a preloaded catalogue.
 
-### 15.2 Performance record
+Per-change record: visible name, application and package IDs with the source of
+that identity, other components in the package, why it is optional, how reinstall
+was verified, tool and exact target, before state, operation, raw result, after
+state, storage delta, functions checked, behaviour after restart, restoration.
 
-| State | Operation | Trials | Median | Range | Failures | Notes |
-|---|---|---:|---|---|---:|---|
-| Baseline | Open Settings | — | Not measured | Not measured | — | |
-| Baseline | Open Home | — | Not measured | Not measured | — | |
-| Cold restart | Open Home | — | Not measured | Not measured | — | |
-| TV offline | Open Home | — | Not measured | Not measured | — | |
-| After one cleanup | Relevant operation | — | Not measured | Not measured | — | |
-| Restored baseline | Same operation | — | Not measured | Not measured | — | |
+Performance template, to be filled rather than estimated:
 
-A useful result explains the conditions and preserves failures. There is no defensible numerical speedup estimate for this TV before these measurements exist.
+| State | Operation | Trials | Median | Range | Failures |
+|---|---|---:|---|---|---:|
+| Baseline | Open Settings | | | | |
+| Baseline | Open Home | | | | |
+| Cold restart | Open Home | | | | |
+| TV offline | Open Home | | | | |
+| After one cleanup | Relevant operation | | | | |
+| Restored baseline | Same operation | | | | |
 
-### 15.3 App-change record
+What each claim needs:
 
-```text
-Visible application name:
-Application ID and source of that identity:
-Package ID and source of that relationship:
-Other components in the same package:
-Why this app is optional:
-How reinstall was verified:
-Tool/interface and version:
-Exact target selected:
-Before-state evidence:
-Approved operation:
-Raw result:
-After-state evidence:
-Storage change, if measurable:
-Basic TV functions checked:
-Result after restart and network reconnection:
-Restoration outcome, if performed:
-```
+- `capability` and `applist` working: those commands are supported on this build.
+- one verified uninstall: an app-specific removal procedure.
+- a working `sdk` shell: an initial-access finding.
+- verified UID 0 with policy access: a rooting finding.
 
-### 15.4 What would justify stronger conclusions
+A full debloat recommendation needs much more than a root prompt: identified
+active components, dependency analysis, measured benefit, repeatability and a
+recovery design.
 
-A successful `capability`/`applist` session would justify describing those commands as supported on this exact build. A verified single-app uninstall would justify an app-specific removal procedure. A working `sdk` shell would justify an initial-access finding. Verified UID 0 and applicable security-policy access would justify a rooting finding.
-
-A **full-debloat recommendation** would require considerably more: identified unwanted active components, dependency analysis, measurable benefit, repeatable behavior and a recovery design. None of those should be inferred solely from a root prompt.
-
-### 15.5 Final recommendation
-
-For immediate usability, prioritize the ordinary cleanup, disable automatic Smart Hub entry, and test the television as an offline HDMI display with an external player. For native-app debloating, the most promising next investigation is the **restricted SDB management path**, with correct identifier handling and a single-app scope. [S04] [S08] [S09] [S24] [S28]
-
-For deeper control, there is enough genuine prior work to justify a firmware-specific research effort. The historical Q60T chain, newer SDB entry point and modern Samsung root projects provide concrete starting points. They do **not yet establish a working full-debloat solution for GQ55Q60TGUXZG / T-NKLDEUC-2743.0**. [S15] [S16] [S22]
-
-The unresolved items are exact device capabilities, actual firmware behavior, component dependencies and measured overhead — not a lack of conceivable research paths.
-
----
+Assessment at the time: prioritise ordinary cleanup, disable automatic Smart Hub
+entry, and test the set as an offline HDMI display. For deeper control there is
+enough prior work to justify a firmware effort, but no working full debloat for
+this build. The gaps are device capabilities, firmware behaviour, dependencies
+and measured overhead, not a shortage of conceivable paths.
 
 ## 16. Sources and provenance
 
-All sources below were accessed or inspected for this report on **25 September 2026**. A current project README is a maintainer statement, not independent reproduction. Links to mutable branches may change after this report; the SAWSUBE review is explicitly pinned to a revision.
+All sources below were accessed or inspected for this report on 25 September 2026. A current project README is a maintainer statement, not independent reproduction. Links to mutable branches may change after this report; the SAWSUBE review is explicitly pinned to a revision.
 
 | Ref. | Primary source | Role and limitation |
 |---|---|---|
-| [S01] | Samsung Germany — GQ55Q60TGUXZG support | Exact model and embedded download metadata; archive itself not analyzed |
-| [S02] | Samsung Developer — Web Engine Specifications | Model-year platform baseline, not live patch-state evidence |
-| [S03] | Samsung Developer — TV Device | Official developer-mode and device-connection workflow |
-| [S04] | Samsung Developer — Command Line Interface | TV-specific install/run/uninstall semantics and device selectors |
-| [S05] | Samsung Developer — Creating Certificates | Application signing and certificate workflow |
-| [S06] | Samsung Developer — Privileges Q&A | Certificate-level/API privilege requirements |
-| [S07] | Samsung Germany — App-Daten und Cache löschen | Supported cleanup concept; current screenshots are not Q60T-specific |
-| [S08] | Samsung UK — Manage apps on a Smart TV | Ordinary removal, preinstalled-app limitations, app updating |
-| [S09] | Samsung Ireland — Activate/deactivate Smart Hub | Startup behavior controls for the relevant menu style |
-| [S10] | Samsung UK — Apps not working or loading | Reinstall and Smart Hub reset guidance |
-| [S11] | Samsung UK — Restart or factory reset | Cold restart and destructive reset distinction |
-| [S12] | Samsung Developer — Device Information and Firmware Q&A | Unsupported downgrade/forced updates; reset/DUID distinction |
-| [S13] | Samsung UK — Update Smart TV software | Supported online and USB update workflow |
-| [S14] | Samsung Developer — Web Inspector | Application-level debugging capabilities and limits |
-| [S15] | Bishop Fox — Samsung Tizen OS, versions through 9.0 | Original SVE-2025-50109 advisory, published 24 February 2026 |
-| [S16] | Synacktiv — samsung-q60t-exploit | Historical exploit repository and decryption example |
-| [S17] | Synacktiv — Rooting Samsung Q60T Smart TV, Sthack 2022 | Original technical presentation; relevant diagram pages inspected |
-| [S18] | Synacktiv — firmware/decrypt.py | Source inspection only; not run on the 2743.0 archive |
+| [S01] | Samsung Germany; GQ55Q60TGUXZG support | Exact model and embedded download metadata; archive itself not analyzed |
+| [S02] | Samsung Developer; Web Engine Specifications | Model-year platform baseline, not live patch-state evidence |
+| [S03] | Samsung Developer; TV Device | Official developer-mode and device-connection workflow |
+| [S04] | Samsung Developer; Command Line Interface | TV-specific install/run/uninstall semantics and device selectors |
+| [S05] | Samsung Developer; Creating Certificates | Application signing and certificate workflow |
+| [S06] | Samsung Developer; Privileges Q&A | Certificate-level/API privilege requirements |
+| [S07] | Samsung Germany; App-Daten und Cache löschen | Supported cleanup concept; current screenshots are not Q60T-specific |
+| [S08] | Samsung UK; Manage apps on a Smart TV | Ordinary removal, preinstalled-app limitations, app updating |
+| [S09] | Samsung Ireland; Activate/deactivate Smart Hub | Startup behavior controls for the relevant menu style |
+| [S10] | Samsung UK; Apps not working or loading | Reinstall and Smart Hub reset guidance |
+| [S11] | Samsung UK; Restart or factory reset | Cold restart and destructive reset distinction |
+| [S12] | Samsung Developer; Device Information and Firmware Q&A | Unsupported downgrade/forced updates; reset/DUID distinction |
+| [S13] | Samsung UK; Update Smart TV software | Supported online and USB update workflow |
+| [S14] | Samsung Developer; Web Inspector | Application-level debugging capabilities and limits |
+| [S15] | Bishop Fox; Samsung Tizen OS, versions through 9.0 | Original SVE-2025-50109 advisory, published 24 February 2026 |
+| [S16] | Synacktiv; samsung-q60t-exploit | Historical exploit repository and decryption example |
+| [S17] | Synacktiv; Rooting Samsung Q60T Smart TV, Sthack 2022 | Original technical presentation; relevant diagram pages inspected |
+| [S18] | Synacktiv; firmware/decrypt.py | Source inspection only; not run on the 2743.0 archive |
 | [S19] | Samsung TV Security Updates | Official historical patches; no exact 2743.0 mapping established |
-| [S20] | TizenBrew — project README | Project purpose and application-level scope |
-| [S21] | TizenBrew — installation documentation | Stated compatibility, current preferred route and localhost configuration |
-| [S22] | chris-ritsen — samsung-tv-root README | Maintainer-reported QN90B/QN90F tests; not Q60T support |
-| [S23] | chris-ritsen — QN90B reproduction note | Explicit compatibility boundaries and separate UEP handling |
-| [S24] | ardazeytin — samsung-tizen-tv-debloat README | First-person NU7400 observations; not an exact-target validation |
-| [S25] | SAWSUBE — debloat_service.py, pinned revision | Selected source review of catalogue, targeting, classification and removal behavior |
-| [S26] | AstFast — TPTRoot README | Confirms this search lead concerns Tizen phones, not the target TV |
-| [S27] | Anselmi et al. — Watching TV with the Second-Party | Original ACR measurement research; not this exact device/firmware |
-| [S28] | Apple — Use the Apple TV remote to control TV/receiver | Power/volume control options; actual household setup not inspected |
-| [S29] | GL.iNet — Block client devices | Vendor-documented client blocking; not an audit of your router rules |
-| [S30] | Home Assistant — Samsung Smart TV integration | Local control integration; not root or package-management evidence |
+| [S20] | TizenBrew; project README | Project purpose and application-level scope |
+| [S21] | TizenBrew; installation documentation | Stated compatibility, current preferred route and localhost configuration |
+| [S22] | chris-ritsen; samsung-tv-root README | Maintainer-reported QN90B/QN90F tests; not Q60T support |
+| [S23] | chris-ritsen; QN90B reproduction note | Explicit compatibility boundaries and separate UEP handling |
+| [S24] | ardazeytin; samsung-tizen-tv-debloat README | First-person NU7400 observations; not an exact-target validation |
+| [S25] | SAWSUBE; debloat_service.py, pinned revision | Selected source review of catalogue, targeting, classification and removal behavior |
+| [S26] | AstFast; TPTRoot README | Confirms this search lead concerns Tizen phones, not the target TV |
+| [S27] | Anselmi et al.; Watching TV with the Second-Party | Original ACR measurement research; not this exact device/firmware |
+| [S28] | Apple; Use the Apple TV remote to control TV/receiver | Power/volume control options; actual household setup not inspected |
+| [S29] | GL.iNet; Block client devices | Vendor-documented client blocking; not an audit of your router rules |
+| [S30] | Home Assistant; Samsung Smart TV integration | Local control integration; not root or package-management evidence |
 
 [S01]: https://www.samsung.com/de/support/model/GQ55Q60TGUXZG/
 [S02]: https://developer.samsung.com/smarttv/develop/specifications/web-engine-specifications.html
@@ -945,16 +872,16 @@ All sources below were accessed or inspected for this report on **25 September 2
 
 ## Glossary
 
-- **SDB (Smart Development Bridge)** — Tizen's device-control protocol and CLI tool (`sdb`), analogous to Android's `adb`; used throughout §5–§7 for capability queries and app management. Not interchangeable with ADB (§1.2).
-- **sdbd** — the SDB daemon running on the TV that receives and dispatches `sdb` commands (§5.2's "SDB command dispatcher" row); its behavior (which commands it accepts) is independent of whether an ordinary interactive shell is enabled (§5.3).
-- **Capability flags** — named boolean/enum fields returned by `sdb capability` (e.g. `intershell_support`, `sdbd_rootperm`, `rootonoff_support`, `filesync_support`, `appcmd_support`) describing what a given `sdbd` build permits (§6.3). Observed per-connection, not guaranteed to generalize.
-- **UEP (Unsigned-Execution Protection)** — Samsung's code-execution-authenticity control, treated in the published research as a boundary distinct from UID/root (§5.2, §10.2, §10.4).
-- **SMACK (Simplified Mandatory Access Control Kernel)** — the Linux Security Module commonly underlying Tizen's mandatory access-control labeling; named here only as background for the generic "security context" boundary in §5.2. Its specific configuration on this TV was not inspected.
-- **Cynara** — Tizen's privilege-checking service, which authorizes API/resource access against a process's installed privileges; likewise named only as background for §5.2's "security context" row, not independently verified here.
-- **DUID (device unique identifier)** — a per-device identifier that a full factory reset can change, distinct from a Smart Hub reset; relevant to development-certificate binding (§4.5).
-- **ACR (automatic content recognition)** — the on-screen-content-fingerprinting feature discussed in §13.2; independently measured (on different hardware) to stop generating server traffic when its opt-out is used.
-- **`sdk` account** — the non-root process identity yielded by the published SDB command-injection vulnerability (SVE-2025-50109); a shell under this account is initial access, not root (§5.2, §10.3).
-- **MSDU** — the magic/format identifier (`MSDU11`) of Samsung's firmware container format, as documented in Synacktiv's `decrypt.py` (§11.3).
-- **TLV descriptor** — a type-length-value encoded record; the decrypted firmware header's internal structures (e.g. `SecureDowngradeDesc`, `OURSAValidationDesc`) are described as such records (§11.3).
-- **VDFS4** — Samsung's proprietary read-only filesystem format referenced in the firmware-analysis follow-up as the format of the main rootfs image; not analyzed in this document itself (§11, editorial note).
-- **cred struct / mmap / physmem / sdp_hwmem** — kernel-level terms belonging to the historical Q60T root primitive (an arbitrary physical-memory-mapping driver, originally `/dev/sdp_mem`, later renamed `sdp_hwmem`) discussed in §10.2 and revisited empirically in the companion firmware-analysis document referenced from §11. This document did not itself disassemble the driver; see `firmware-analysis.md` for that first-hand result.
+- SDB (Smart Development Bridge); Tizen's device-control protocol and CLI tool (`sdb`), analogous to Android's `adb`; used throughout §5–§7 for capability queries and app management. Not interchangeable with ADB (§1.2).
+- sdbd; the SDB daemon running on the TV that receives and dispatches `sdb` commands (§5.2's "SDB command dispatcher" row); its behavior (which commands it accepts) is independent of whether an ordinary interactive shell is enabled (§5.3).
+- Capability flags; named boolean/enum fields returned by `sdb capability` (e.g. `intershell_support`, `sdbd_rootperm`, `rootonoff_support`, `filesync_support`, `appcmd_support`) describing what a given `sdbd` build permits (§6.3). Observed per-connection, not guaranteed to generalize.
+- UEP (Unsigned-Execution Protection); Samsung's code-execution-authenticity control, treated in the published research as a boundary distinct from UID/root (§5.2, §10).
+- SMACK (Simplified Mandatory Access Control Kernel); the Linux Security Module commonly underlying Tizen's mandatory access-control labeling; named here only as background for the generic "security context" boundary in §5.2. Its specific configuration on this TV was not inspected.
+- Cynara; Tizen's privilege-checking service, which authorizes API/resource access against a process's installed privileges; likewise named only as background for §5.2's "security context" row, not independently verified here.
+- DUID (device unique identifier); a per-device identifier that a full factory reset can change, distinct from a Smart Hub reset; relevant to development-certificate binding (§4.5).
+- ACR (automatic content recognition); the on-screen-content-fingerprinting feature discussed in §13.2; independently measured (on different hardware) to stop generating server traffic when its opt-out is used.
+- `sdk` account; the non-root process identity yielded by the published SDB command-injection vulnerability (SVE-2025-50109); a shell under this account is initial access, not root (§5.2, §10).
+- MSDU; the magic/format identifier (`MSDU11`) of Samsung's firmware container format, as documented in Synacktiv's `decrypt.py` (§11.3).
+- TLV descriptor; a type-length-value encoded record; the decrypted firmware header's internal structures (e.g. `SecureDowngradeDesc`, `OURSAValidationDesc`) are described as such records (§11.3).
+- VDFS4; Samsung's proprietary read-only filesystem format referenced in the firmware-analysis follow-up as the format of the main rootfs image; not analyzed in this document itself (§11, editorial note).
+- cred struct / mmap / physmem / sdp_hwmem; kernel-level terms belonging to the historical Q60T root primitive (an arbitrary physical-memory-mapping driver, originally `/dev/sdp_mem`, later renamed `sdp_hwmem`) discussed in §10.1 and revisited empirically in the companion firmware-analysis document referenced from §11. This document did not itself disassemble the driver; see `firmware-analysis.md` for that first-hand result.
