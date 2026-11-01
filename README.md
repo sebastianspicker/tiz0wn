@@ -3,6 +3,31 @@
 An evidence-first security research workspace for a personally owned Samsung
 Q60T (`GQ55Q60TGUXZG`, firmware `T-NKLDEUC-2743.0`).
 
+<details>
+<summary>Status and limitations</summary>
+
+> [!NOTE]
+> tiz0wn is an independent exploratory security research project. Developed
+> independently alongside my main professional work. The code and write-ups
+> are references for investigation and adaptation, rather than a ready-to-use
+> rooting product. Recorded results cover one owned Q60T and an exact firmware
+> build; sibling-model values and offsets are not interchangeable.
+>
+> **Disclaimer.** Findings do not guarantee the security, compatibility or
+> recoverability of another device. Use only systems you own or are authorized
+> to test. Root access and persistent filesystem changes can cause data loss,
+> outages or an unusable device; validate the documented gates and recovery
+> path before proceeding. You are responsible for any changes you make.
+
+</details>
+
+```mermaid
+flowchart LR
+    Offline["Offline image analysis"] --> Scope["Exact-build findings and limits"]
+    Scope --> Lab["Authorized lab validation"]
+    Lab --> Evidence["Evidence and recovery record"]
+```
+
 Scope: one device and one exact build. Everything below was measured on that
 unit, including the offsets. Sibling models are discussed where the work
 overlaps, and their values are theirs, not portable here.
@@ -83,7 +108,7 @@ them should know the others exist.
 One difference the Reach row hides: the entry is not the whole surface. cfloinc's
 chain ends by firing the kernel stage from a loop device at ~60 s, so UEP is down
 at boot and dropbear serves root SSH on `:22` — a booted set is reachable over
-the network. This route has no listener at all: `cmd/in` is `0777`, so anything
+the network. On the TV, this route adds no network listener: `cmd/in` is `0777`, so anything
 already local at `sdk` can drive root, and nothing else can. Keeping UEP armed is
 what that costs; an agent instead of a listener.
 
@@ -200,3 +225,25 @@ TV-control port to the Internet.
 MIT; see [`LICENSE`](LICENSE). Firmware and third-party tools are not
 redistributed. Their attribution and licensing are described in
 [`NOTICE.md`](NOTICE.md).
+
+## Tooling security checks
+
+GitHub runs synthetic offline security controls; CodeQL default setup is
+configured for Python. General shell/Python lint runs manually or for
+Dependabot-authored pull requests. The workflow never contacts a TV,
+starts a delivery server on the LAN, deploys a payload or publishes a release.
+Action versions are tracked by Dependabot. Detailed field suites and device
+evidence remain local.
+
+Generated shadow-table windows and baked setup/resume scripts are atomically
+written with owner-only permissions. The optional host callback receiver now
+binds the explicit `HOST_IP`, accepts only the configured `TV_HOST` source IPv4,
+and limits a response to 16 MiB, 10 seconds of idle time and 35 seconds total
+(including at most 25 seconds waiting for the peer). It publishes only complete
+output, mode 0600. Wrong-peer, oversized and timed-out callbacks leave existing
+output unchanged. The `q.sh` caller passes these addresses explicitly and stops
+if its receiver fails.
+
+The address filter is not cryptographic authentication; base64 is not encryption.
+Use an isolated, trusted lab network. These limits are not evidence of broader
+model or firmware compatibility, and no live target was used by the CI checks.

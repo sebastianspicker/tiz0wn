@@ -39,3 +39,21 @@ __pycache__/
 
 # Rewrite staging copies + process report (originals already replaced in place)
 /rewritten/
+
+# Local agent/audit packets and generated sensitive account artifacts.
+AGENT.md
+AGENTS.md
+CLAUDE.md
+CODEX.md
+GEMINI.md
+.codex/
+.claude/
+/THINGS_TO_DO_LEDGER.md
+/ALPHA_AUDIT_*.md
+/ALPHA_IMPLEMENTATION_*.md
+/ALPHA_PR_DESCRIPTION.md
+shadow.window
+passwd.window
+accounts.json
+.tiz0wn-private-*
+/exploits/*/out/
