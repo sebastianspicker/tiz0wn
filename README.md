@@ -48,6 +48,9 @@ same-size block patch in the read-only rootfs is hash-gated, backed up, written
 and re-verified, and a boot hook fires it once per boot. `sdk` was also turned
 into a root login. Three full power cycles confirmed the persistence.
 
+The measured password-field characters and limits are in the
+[trigger grammar](docs/trigger-grammar.md).
+
 Read [the report](docs/DISCLOSURE.md) for the source trace and the reproduction
 notes.
 ## Current results
@@ -77,9 +80,9 @@ Dropbear, custom tooling as processes and kernel modules are therefore
 unavailable even as root.
 
 `make -C exploits/tiz0wn-root check` lints the shell and Python and runs the
-loopback rehearsal, without contacting the TV. The test suites, ledger and
-handoff notes are local-only and untracked, so a clone gets the tooling and the
-documentation rather than the bookkeeping.
+loopback rehearsal, without contacting the TV. The ledger and handoff notes are
+local-only and untracked; the synthetic tests and security controls are public,
+so a clone can run them.
 
 ## Three routes, one community effort
 
@@ -190,6 +193,12 @@ stays armed and the reach is local, not `:22`.
 
 `make -C exploits/tiz0wn-root check` lints the shell and Python and runs the
 loopback rehearsal on a block file. Nothing contacts the TV.
+
+A run follows `plan` → `build-run` → `check` offline, then `serve` on a specific
+private IPv4 address and a port from 1 to 65535. The account is off by default;
+enabling it requires `--account` together with `--password`. The
+[runbook](exploits/tiz0wn-root/README.md#using-it-offline) has the commands and
+the verified rollback path for a live trigger.
 
 A live run needs the offset from your own image and one Remote PC trigger. The
 procedure, gates and limits are in

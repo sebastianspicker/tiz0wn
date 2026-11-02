@@ -11,13 +11,15 @@ config/tv.env
 *-private.*
 tv-info*.json
 
-# Ledgers and tests are local-only: histories churn and the suites are large.
+# Ledgers and other test suites remain local-only.
 LEDGER.jsonl
 LEDGER.head
 LEDGER.lock
 test_*.py
 test_*.c
 /exploits/*/tests/
+!/exploits/tiz0wn-root/tests/
+!/exploits/tiz0wn-root/tests/test_*.py
 
 /exploits/*/runs/
 /exploits/*/dist/
