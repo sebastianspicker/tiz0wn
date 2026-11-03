@@ -174,7 +174,8 @@ separate, non-UEP wall: SMACK denied a `_`-labelled root agent's own loopback
 (`subject="_"` against `User::Pkg::<appid>`, requested `w`). `uid=0` does not
 grant an implicit pass to app-labelled sockets; the fix is to load explicit
 rules both ways through `/sys/fs/smackfs/load2` first, reading the app label
-from `/proc/self/attr/current` rather than hardcoding it.
+from `/proc/self/attr/current` rather than hardcoding it. That fix is shipped
+as [`payload/smack-allow`](exploits/tiz0wn-root/payload/smack-allow).
 
 That is why this chain keeps UEP armed end to end and pays for it only in style:
 every step is a script invoked by content. Where UEP is disabled, the kernel work
@@ -337,6 +338,7 @@ TV-control port to the Internet.
 | [`docs/firmware-analysis.md`](docs/firmware-analysis.md) | The image analysis the offset comes from |
 | [`docs/trigger-grammar.md`](docs/trigger-grammar.md) | The measured password-field character classes, proven and rejected |
 | [`docs/privileged-services.md`](docs/privileged-services.md) | The privileged-service inventory: shell-argv versus argv-direct sinks |
+| [`docs/q90t-tee-decrypt.md`](docs/q90t-tee-decrypt.md) | The Q90T SWU passphrase route through the TrustZone TA |
 | [`docs/testing.md`](docs/testing.md) | What the public suites cover, what stays local |
 | [`SECURITY.md`](SECURITY.md) | Reporting, what is public, how to run it safely |
 
@@ -368,12 +370,14 @@ evidence remain local.
 Generated shadow-table windows and baked setup/resume scripts are atomically
 written with owner-only permissions. The optional host callback receiver now
 binds the explicit `HOST_IP`, accepts only the configured `TV_HOST` source IPv4,
-and limits a response to 16 MiB, 10 seconds of idle time and 35 seconds total
-(including at most 25 seconds waiting for the peer). It publishes only complete
-output, mode 0600. Wrong-peer, oversized and timed-out callbacks leave existing
+requires the per-call token that `q.sh` generated, and limits a response to
+16 MiB, 10 seconds of idle time and 35 seconds total (including at most 25
+seconds waiting for the peer). It publishes only complete output, mode 0600.
+Wrong-peer, wrong-token, oversized and timed-out callbacks leave existing
 output unchanged. The `q.sh` caller passes these addresses explicitly and stops
 if its receiver fails.
 
-The address filter is not cryptographic authentication; base64 is not encryption.
-Use an isolated, trusted lab network. These limits are not evidence of broader
-model or firmware compatibility, and no live target was used by the CI checks.
+The address filter and per-call token are not cryptographic authentication;
+base64 is not encryption. Use an isolated, trusted lab network. These limits are
+not evidence of broader model or firmware compatibility, and no live target was
+used by the CI checks.
