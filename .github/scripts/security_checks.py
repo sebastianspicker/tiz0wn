@@ -47,18 +47,22 @@ class SecurityChecks(unittest.TestCase):
             self.assertEqual(stat.S_IMODE(output.stat().st_mode), 0o600)
             self.assertFalse(list(root.glob(".tiz0wn-private-*")))
 
-    def callback(self, data, *, peer="127.0.0.1", maximum=64, trickle=False):
+    def callback(self, data, *, peer="127.0.0.1", maximum=64, trickle=False,
+                 token=None, send_token=None):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
         output = Path(temporary.name) / "result"
         output.write_bytes(b"previous complete output")
+        if token is not None:
+            data = (send_token if send_token is not None else token).encode() + b"\n" + data
         with socket.socket() as reservation:
             reservation.bind(("127.0.0.1", 0))
             port = reservation.getsockname()[1]
         failures = []
         def receive():
             try:
-                receiver.receive(port, output, "127.0.0.1", peer, max_bytes=maximum,
+                receiver.receive(port, output, "127.0.0.1", peer, token=token,
+                                 max_bytes=maximum,
                                  accept_timeout=0.4, idle_timeout=0.2, total_timeout=0.8)
             except (OSError, ValueError) as error:
                 failures.append(error)
@@ -94,6 +98,16 @@ class SecurityChecks(unittest.TestCase):
         self.assertFalse(failures)
         self.assertEqual(output.read_bytes(), b"c3ludGhldGljCg==")
         self.assertEqual(stat.S_IMODE(output.stat().st_mode), 0o600)
+
+    def test_token_is_checked_before_output_is_published(self):
+        output, failures = self.callback(b"c3ludGhldGljCg==", token="a1b2c3")
+        self.assertFalse(failures)
+        self.assertEqual(output.read_bytes(), b"c3ludGhldGljCg==")
+
+        output, failures = self.callback(
+            b"c3ludGhldGljCg==", token="a1b2c3", send_token="deadbeef")
+        self.assertTrue(failures)
+        self.assertEqual(output.read_bytes(), b"previous complete output")
 
     def test_wrong_peer_and_oversized_callbacks_do_not_replace_output(self):
         for data, peer, limit in [(b"unexpected", "127.0.0.2", 64), (b"x" * 65, "127.0.0.1", 64)]:
