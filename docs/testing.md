@@ -2,8 +2,8 @@ publish
 
 # Testing
 
-The five `exploits/tiz0wn-root/tests/test_*.py` files are public synthetic
-contracts. They create their own temporary files and block images. The only checked-in
+The `exploits/tiz0wn-root/tests/` and `exploits/tiz0wn-app/tests/` files are
+public synthetic contracts. They create their own temporary files and block images. The only checked-in
 fixture is the public 776-byte vendor carrier, used to keep the exact-carrier
 patch contract; there is no firmware image. They do not contact a TV or require
 `evidence/`, `runs/`, local configuration, or a real device. The CI job runs them
@@ -11,6 +11,9 @@ with Python 3.13:
 
 ```sh
 python3 -m unittest discover -s exploits/tiz0wn-root/tests -p 'test_*.py' -v
+python3 -m unittest discover -s exploits/tiz0wn-app/tests -p 'test_*.py' -v
+python3 -m unittest discover -s exploits/tiz0wn-app/tests/archive -p 'test_*.py' -v
+node exploits/tiz0wn-app/tests/run.js
 ```
 
 The tests run with Python's standard library and local shell tools. Cases that

@@ -24,7 +24,12 @@ jobs:
         with:
           python-version: "3.13"
       - name: Run synthetic tests
-        run: python3 -m unittest discover -s exploits/tiz0wn-root/tests -p 'test_*.py' -v
+        run: |
+          python3 -m unittest discover -s exploits/tiz0wn-root/tests -p 'test_*.py' -v
+          python3 -m unittest discover -s exploits/tiz0wn-app/tests -p 'test_*.py' -v
+          python3 -m unittest discover -s exploits/tiz0wn-app/tests/archive -p 'test_*.py' -v
+      - name: Run app replay tests
+        run: node exploits/tiz0wn-app/tests/run.js
 
   offline-security:
     name: Offline security controls
