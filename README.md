@@ -90,7 +90,10 @@ Three people reached root on this TV generation within weeks of each other, on
 three models, and published what they learned. Nobody started from nothing:
 each route borrows a piece the others proved. The routes are complementary
 rather than competing: each solves a different problem and each has a weak half
-the others do not.
+the others do not. Since publication a fourth set joined the effort: on a
+Q74T the same CIFS path reached a persistent root agent, and its owner
+supplied the two platform gotchas below that matter for anyone building on
+this family.
 
 | | [metaljay](https://github.com/metaljay) (Q90T) | [cfloinc](https://github.com/cfloinc/samsung-q70t-tizen-root) (Q70T) | this repo (`GQ55Q60TGUXZG`) |
 |---|---|---|---|
@@ -100,6 +103,19 @@ the others do not.
 | Rollback | needs the USB stick or the dossier | needs the stick or a second run | another trigger; the backup hashes to the vendor image |
 | Reach | physical USB port | physical USB port | the TV's own network, one password field |
 | UEP | derived the gates but shipped content-form per hop, since a verifier-entry patch boot-looped | chose the signed-`/bin/bash` variant rather than patch UEP; content-form for the hook | never touched; content-form throughout |
+
+Coverage so far, one verified build per row: offsets are per-image and never
+transfer, but the 776-byte carrier is byte-identical on every set, which is
+what makes the comparison meaningful. These rows are the working state of
+issue #1's *Q-Series Coverage & Affected-Version Matrix* milestone: confirmed
+roots per exact build, not a claimed affected range.
+
+| Set (model, build) | Route to root | Persistence offset | Verified on the set |
+|---|---|---|---|
+| Q60T `GQ55Q60TGUXZG`, `T-NKLDEUC-2743.0` | Remote PC/CIFS credential sink | p19 byte `704753664` | three full power cycles; `sdk` root login |
+| Q90T `QE75Q90TATXXU`, `T-NKMDEUC-REL-202607031800` | USB image (Luminger), after two bounded CIFS UID-0 proofs | p18 byte `752541696` (512-block `1469808`) | USB-free boots via boot IDs; set planned back to stock |
+| Q70T `QN65Q70TAFXZA`, `T-NKMAKUC-2743.0` | exFAT USB kernel LPE after the SDB foothold | p19 byte `1612972032` (512-block `3150336`) | two power cycles; dropbear root SSH |
+| Q74T `QE55Q74TATXZT`, `T-NKMDEUC-2743.0` (Tizen 5.5) | Remote PC/CIFS, via the [vetro remote-pc prototype](https://github.com/andrearicci93/vetro) | derived from its own image | persistence and the agent's loopback channel after the two fixes below |
 
 Read together, the three cover each other's gaps. The USB routes work on a set
 with no network path and no Developer Mode. This route works with no stick, no
@@ -120,9 +136,10 @@ What all three converged on, independently, is the persistence primitive: a
 block write at a per-image offset, backed up byte-exactly, and reached through
 `tizen-system-env.service` → `/etc/profile` → `profile.d`. metaljay's Q90T hit is
 byte `752541696` on p18, cfloinc's Q70T hit is `1612972032` on p19, and ours is
-`704753664` on p19. Three images, three offsets, one method. The offset is
-per-image and the method is portable, which is exactly why three independent
-derivations are worth more than one.
+`704753664` on p19; tenda96 derived the offset from his Q74T's own image and
+found the carrier byte-identical again. Four images, four offsets, one method.
+The offset is per-image and the method is portable, which is exactly why four
+independent derivations are worth more than one.
 
 The sharpest shared finding is that root alone is not enough, because of UEP.
 cfloinc lost a day to it: `sh /opt/…/boot.sh` still trips UEP even from a root
@@ -142,14 +159,31 @@ The inode model, and the split between the kernel handler (`execve`,
 correction. cfloinc flags them as such and marks his own Q70T controls for the
 shell layer as still queued, so the two are kept apart here as well.
 
+The Q74T cross-check adds two gotchas for anyone building a longer-lived
+channel on this family. First, the content rule runs recursively: a hook that
+arrives by content but starts a second, longer-lived helper *by path*
+(`setsid /path/helper &`) has that second `execve` silently refused — the
+parent runs on and `$!` still reports a plausible PID, but the helper dies
+immediately after the single refusal, with no other symptom. The fix is the
+same principle one level deeper, `setsid sh -c "$(cat /path/helper)" args &`;
+a side effect is that `pgrep -f` stops matching, so a PID file is the
+reliable liveness test. This chain already follows both: every hop is
+content, and the agent's single-instance check is a PID file. Second, a
+separate, non-UEP wall: SMACK denied a `_`-labelled root agent's own loopback
+`connect()` to a socket labelled for an installed app
+(`subject="_"` against `User::Pkg::<appid>`, requested `w`). `uid=0` does not
+grant an implicit pass to app-labelled sockets; the fix is to load explicit
+rules both ways through `/sys/fs/smackfs/load2` first, reading the app label
+from `/proc/self/attr/current` rather than hardcoding it.
+
 That is why this chain keeps UEP armed end to end and pays for it only in style:
 every step is a script invoked by content. Where UEP is disabled, the kernel work
 above already documents how, and its symbols are the reference for the family.
 
 ## Attribution
 
-These three routes are one effort, and the sections below are theirs to write.
-Thanks to both, and to everyone in issue #1 who tested, corrected and
+These routes are one effort, and the sections below are theirs to write.
+Thanks to all three, and to everyone in issue #1 who tested, corrected and
 cross-checked:
 
 - [metaljay](https://github.com/metaljay), first public root on this generation;
@@ -160,18 +194,31 @@ cross-checked:
   reviewed the compatibility wording.
 - [cfloinc](https://github.com/cfloinc/samsung-q70t-tizen-root), the Q70T writeup
   and `persistent-hook/` kit (MIT); the UEP file-loading finding that `sh -c
-  "$(cat …)"` exists to defeat; the negative result that archive-root is
-  impossible without `/usr/bin/dotnet`; and the attribution that keeps the
-  per-inode UEP model with txtsamu rather than folding it into the Q70T work.
+  "$(cat …)"` exists to defeat; the independent cross-check of the NIKEM kernel
+  symbol table from the Q70T kernel via the SWU TrustZone TA; the negative
+  result that archive-root is impossible without `/usr/bin/dotnet`; and the
+  attribution that keeps the per-inode UEP model with txtsamu rather than
+  folding it into the Q70T work.
+- [tenda96](https://github.com/tenda96), the fourth NIKEM-family cross-check on
+  a Q74T (`QE55Q74TATXZT`): the carrier byte-identity confirmed on a fourth set
+  with the offset derived from his own image; the finding that the
+  content-invocation rule applies recursively, so a helper started by path from
+  a content-invoked hook is silently refused by UEP; and the finding that a
+  `_`-labelled root agent is denied loopback TCP to app-labelled sockets unless
+  explicit SMACK `load2` rules are loaded both ways. Both findings stand behind
+  the persistent root agent on the [vetro remote-pc prototype](https://github.com/andrearicci93/vetro)
+  on that set.
 
 `NOTICE.md` keeps the used-versus-investigated distinction and the licenses.
 Where a technique here is theirs, the credit sits on the technique rather than
 only in this section.
 
-Two sections below are for cfloinc and metaljay. Both offered to write or review
-a short section for this README rather than be paraphrased (issue #1, 28 and 29
-October). cfloinc's text arrived on 29 October and is reproduced verbatim;
-metaljay's section stays empty until his does.
+The sections below are for the people who did the work. cfloinc offered to write
+his rather than be paraphrased (issue #1, 29 October) and his text is
+reproduced verbatim. metaljay offered the same, and his section is summarised
+from his issue #1 reports (13, 20, 21 and 28 October) until his own text
+arrives; it is meant to be replaced, not amended. tenda96's section is likewise
+summarised from his 2 November comment.
 
 ## From cfloinc (Q70T)
 As sent in [issue #1](https://github.com/sebastianspicker/tiz0wn/issues/1#issuecomment-6504466699)
@@ -187,7 +234,78 @@ stays armed and the reach is local, not `:22`.
 
 ## From metaljay (Q90T)
 
-> _reserved_
+> _Summarised from his [issue #1](https://github.com/sebastianspicker/tiz0wn/issues/1)
+> reports; intended to be replaced by his own text if and when he sends it._
+
+**QE75Q90TATXXU (2020 Q90T, NIKEM, Tizen 5.5, ARMv7, kernel 4.1.10, build stamp
+`T-NKMDEUC-REL-202607031800`).** The CIFS route held first: five relevant
+Remote PC / privileged-service files matched the Q60T reference hashes, and a
+manually adapted harness produced two independent one-shot UID-0 marker proofs
+— bounded command execution only, no shell and no persistence, and not the
+route his final root used. That came from adapting
+[Luminger/samsung-tv-usb-root](https://github.com/Luminger/samsung-tv-usb-root)
+from its 2019 Muse.M target to this 2020 NikeM set: root from a USB image, then
+boot persistence without the stick through a single-block swap of the
+root-sourced `profile.d` carrier (p18, byte `752541696` = 512-block
+`1469808`; the remaining 264 file bytes in the next block stay untouched) with
+a maintenance chain under `/opt`. USB-free reboots were confirmed through
+changed boot IDs and boot-chain logs; maintenance is authenticated and
+outbound-only through a manually started Mac endpoint; the root console is
+line-oriented — a fresh subshell per command, not a PTY. Developer Mode is off
+and the set does not need a Pi. Recovery, should it ever be needed, requires
+the set to boot far enough to mount a USB device.
+
+For the UEP-disabled half he recovered the kernel symbols from the image:
+`call_usermodehelper` `0xc003b87c`, `memcpy` `0xc020b120`, the
+`ldm ip,{r2,r3,r4,r7,r8,r9,sl,sp,lr,pc}` landing pad `0xc05455bc`, the UEP
+verifier gate `0xc01de028`, the status global `0xc069342c`, and the unreferenced
+cave `0xc0008358..0xc0009000` with copy destination `0xc00083d8`. Patching the
+verifier entry boot-looped the set, and zeroing the status global allowed
+unsigned binaries but left the state unstable — which is why he shipped
+content-form per hop. cfloinc independently derived the same six values from
+his Q70T kernel through the SWU TrustZone TA and every shared value matched,
+which supports calling the table NIKEM-family; the chain itself remains
+verified on one set, and that limit stands.
+
+His MSD container parses (`MSDU11`, header `T-NKMDEUC`) but none of the ten
+candidate keys yields a valid decrypted header, and SDB refuses to pull the
+SWU passphrase file even though the SDK diagnostic proves it is readable — so
+the TEE passphrase route is the open item on his set. He plans to return the
+TV to stock (debloat retained, maintenance channel removed), so no fresh live
+testing is available from it.
+
+## From tenda96 (Q74T)
+
+> _Summarised from his [issue #1 comment](https://github.com/sebastianspicker/tiz0wn/issues/1#issuecomment-6590976026)
+> of 2 November._
+
+**QE55Q74TATXZT (`20_NIKEM_QTV`, Tizen 5.5, `T-NKMDEUC-2743.0`)** — a fourth
+NIKEM-family set. The 776-byte `bash_prompt_custom.sh` carrier hashes
+identically again, with the offset derived independently from this image.
+Two platform gotchas, each confirmed over real power cycles, that shaped the
+persistent root agent from the [vetro remote-pc prototype](https://github.com/andrearicci93/vetro)
+on that set (whose own branch had already reached a working root agent through
+the same credential-injection path):
+
+1. The content-invocation rule is recursive. A boot hook that arrives by
+   content but starts a second, longer-lived helper by path
+   (`setsid /path/helper &`) has that launch silently rejected by UEP: the
+   parent runs on, `$!` still gives a plausible PID, and nothing looks wrong
+   until the helper's stderr is pointed at a file instead of `/dev/null` — it
+   dies immediately after the one refused `execve`. The fix is content one
+   level deeper, `setsid sh -c "$(cat /path/helper)" name arg1 arg2 &`
+   (positional args pass through), with the side effect that a path-based
+   liveness check (`pgrep -f`) no longer matches, so a PID file is the
+   reliable test.
+2. SMACK is a separate wall, not UEP: the root agent's own loopback
+   `connect()` to a specific app's socket was denied
+   (`lsm=SMACK fn=smack_socket_sock_rcv_skb`, `subject="_"` against
+   `object="User::Pkg::<appid>"`, requested `w`, on `lo`). The usual "I'm
+   root, SMACK doesn't apply to me" assumption does not hold for
+   app-labelled sockets on this platform's SMACK build. Root can still fix
+   it for itself: load explicit rules both ways through
+   `/sys/fs/smackfs/load2`, with the real app label read from
+   `/proc/self/attr/current` rather than hardcoded.
 
 ## Running it
 
@@ -217,6 +335,9 @@ TV-control port to the Internet.
 | [`exploits/tiz0wn-root/HANDOFF-SAMSUNG.md`](exploits/tiz0wn-root/HANDOFF-SAMSUNG.md) | Vendor-facing summary |
 | [`docs/DISCLOSURE.md`](docs/DISCLOSURE.md) | The vulnerability report, timeline and fix guidance |
 | [`docs/firmware-analysis.md`](docs/firmware-analysis.md) | The image analysis the offset comes from |
+| [`docs/trigger-grammar.md`](docs/trigger-grammar.md) | The measured password-field character classes, proven and rejected |
+| [`docs/privileged-services.md`](docs/privileged-services.md) | The privileged-service inventory: shell-argv versus argv-direct sinks |
+| [`docs/testing.md`](docs/testing.md) | What the public suites cover, what stays local |
 | [`SECURITY.md`](SECURITY.md) | Reporting, what is public, how to run it safely |
 
 ## Safety and scope
