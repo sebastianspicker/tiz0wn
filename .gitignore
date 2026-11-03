@@ -20,6 +20,10 @@ test_*.c
 /exploits/*/tests/
 !/exploits/tiz0wn-root/tests/
 !/exploits/tiz0wn-root/tests/test_*.py
+!/exploits/tiz0wn-app/tests/
+!/exploits/tiz0wn-app/tests/test_*.py
+!/exploits/tiz0wn-app/tests/archive/
+!/exploits/tiz0wn-app/tests/archive/test_*.py
 
 /exploits/*/runs/
 /exploits/*/dist/

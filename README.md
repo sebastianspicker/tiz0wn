@@ -64,6 +64,9 @@ notes.
 | Persistence | Proven over three full power cycles; the hook fires once per boot as `uid=0` and restores the agent |
 | `sdk` as root login | Done. `sdk` resolves to `uid 0` with `/root` and `/bin/bash` and a password, surviving power cycles, with no mode loosened |
 | Root capability | Root over the whole filesystem, block devices, `/proc` and sysctl, but no unsigned binary executes (see below) |
+| App route | Built and offline-tested: a self-signed WGT reaches TV-local SDB and stages the archive launcher; not installed yet |
+| UEP disable | The kernel state word is mapped offline; the physical primitive and write are unproven |
+| Debloat adoption | 29 packages classified, reversible `pkgcmd`, quick settings, kill-switch map and hosts filter prepared |
 
 The chain needs one trigger, no USB stick, no kernel exploit, no kernel module
 and no UEP patch. The full procedure, measurements and limits are in
@@ -255,11 +258,17 @@ TV-control port to the Internet.
 | Path | Purpose |
 |---|---|
 | [`exploits/tiz0wn-root/`](exploits/tiz0wn-root/) | The chain: builder, payloads, session tooling |
+| [`exploits/tiz0wn-app/`](exploits/tiz0wn-app/) | Self-signed app route: local SDB, archive launcher, UEP control; offline-tested |
 | [`exploits/tiz0wn-root/LIVE-RUN-2026-10-29.md`](exploits/tiz0wn-root/LIVE-RUN-2026-10-29.md) | The live session: offset derivation, trigger, verification, boot proofs |
 | [`exploits/tiz0wn-root/builder/accounts.py`](exploits/tiz0wn-root/builder/accounts.py) | The `sdk` and `shadow` patch: builder and gates |
 | [`exploits/tiz0wn-root/payload/rootlogin`](exploits/tiz0wn-root/payload/rootlogin) | The same patch as a device script |
 | [`exploits/tiz0wn-root/HANDOFF-SAMSUNG.md`](exploits/tiz0wn-root/HANDOFF-SAMSUNG.md) | Vendor-facing summary |
+| [`docs/app-route-report.md`](docs/app-route-report.md) | Batch report: app route, UEP map, primitive audit and debloat adoption |
 | [`docs/DISCLOSURE.md`](docs/DISCLOSURE.md) | The vulnerability report, timeline and fix guidance |
+| [`docs/uep-q60t.md`](docs/uep-q60t.md) | The guarded UEP state word, addresses and live-check sequence |
+| [`docs/physical-primitives.md`](docs/physical-primitives.md) | The physical-memory candidate audit |
+| [`docs/archive-root-prereqs.md`](docs/archive-root-prereqs.md) | Which archive-chain components exist on this build |
+| [`docs/debloat-q60t.md`](docs/debloat-q60t.md) | Offline background-package inventory and roles |
 | [`docs/firmware-analysis.md`](docs/firmware-analysis.md) | The image analysis the offset comes from |
 | [`docs/trigger-grammar.md`](docs/trigger-grammar.md) | The measured password-field character classes, proven and rejected |
 | [`docs/privileged-services.md`](docs/privileged-services.md) | The privileged-service inventory: shell-argv versus argv-direct sinks |
@@ -275,6 +284,10 @@ TV-control port to the Internet.
 - Do not confuse the disposable RDP host's `q60t` account with the TV's `sdk`.
 - Nothing is written before the window hash matches, and the backup is verified
   before it is needed.
+- The app route is a self-signed development package. A self-signed author
+  certificate is not a store certificate and does not establish boot startup.
+- UEP and app-route root are volatile; a reboot clears them. Keep the CIFS route
+  as recovery.
 
 ## License
 
