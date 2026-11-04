@@ -1,8 +1,11 @@
 # Batch 2 report: app route, UEP map and debloat adoption
 
 Date: 2026-11-03. Target: `GQ55Q60TGUXZG`, firmware `T-NKLDEUC-2743.0`.
-All work offline; **no TV was contacted**. Everything below is a prepared
-route or a static result, not a live claim.
+Offline preparation, then a **live run on 2026-11-04** with owner approval.
+The root path is now live-proven; the archive endpoint is not.
+Live record: [`LIVE-RUN-2026-11-04.md`](../exploits/tiz0wn-root/LIVE-RUN-2026-11-04.md).
+
+**Status, 2026-11-04:** `/run` root, the capsh `/root` archive path, platform boot start and the token relay are live. UEP is not disabled. `POST /cmd` replaced `sdb shell` as the command channel. Developer Mode and a self-signed certificate remain required; `sdbd` serves one loopback client and wedges after session bursts; one set and firmware only.
 
 ## Why this batch
 
@@ -17,6 +20,14 @@ interaction. Two adjacent questions were worth a separate pass:
 A third, independent goal was to adopt the reversible debloat mechanisms from
 [Vetro](https://github.com/andrearicci93/vetro) without copying its Q80A
 package decisions.
+
+## Live result
+
+After Samsung signing, package-id shortening to `tiz0wnprob`, the two SMACK
+rules, Host PC IP `127.0.0.1` and the host SDB daemon stopped, `GET /run`
+returned `uid=0(root) … context="System"`. That is root command execution from
+an app label through sdbd's package-name injection. `/root` later returned
+`rc=0` through `capsh` + `sdbd-tarlauncher`.
 
 ## What was established
 
@@ -109,6 +120,11 @@ successful unsigned canary and UEP `0`.
 ## Limits
 
 - No TV install, no root, no UEP write, no boot observation.
+- The 2026-11-04 install attempt reached the TV but not sdbd: ICMP and TCP
+  `26101` worked while `sdb connect` failed, including after a server restart
+  and host-key regeneration. The API still reported Developer Mode on and the
+  correct host IP. Recovery is a power cycle; see
+  `exploits/tiz0wn-app/docs/FIRST-RUN.md`.
 - `.NET 3.0` runtime load from `dotnet-launcher` is unproven.
 - The app service depends on local SDB and the SMACK rule from
   `payload/smack-allow`; neither is measured from an app label yet.

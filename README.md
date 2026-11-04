@@ -3,6 +3,22 @@
 An evidence-first security research workspace for a personally owned Samsung
 Q60T (`GQ55Q60TGUXZG`, firmware `T-NKLDEUC-2743.0`).
 
+> [!IMPORTANT]
+> **Update 2026-11-04 — root works without USB and survives boot on this set.**
+> Verified live on the owned Q60T: `/run` returns root from an installed
+> self-signed WGT, `amd` starts the service from the per-user `app_onboot` row
+> at +48–58 s with no app opened, a bounded worker covers a missed boot list,
+> a token relay keeps Host PC IP at `127.0.0.1` while still carrying `push` and
+> `install` from the Mac, and `POST /cmd` runs bounded root commands.
+>
+> **Boundaries, not solved:** Developer Mode and a self-signed certificate are
+> still required; UEP is not disabled; `sdbd` serves one loopback client, so
+> `sdb` and `/cmd` exclude each other, and it wedges after session bursts; an
+> OTA replaces the profile.d hook; one set and firmware only.
+>
+> Operate from `docs/current-state-2026-11-04.md`; recovery order is in
+> `docs/HANDOFF-2026-11-04.md`; the relay rule is `docs/sdb-relay.md`.
+
 <details>
 <summary>Status and limitations</summary>
 
@@ -20,13 +36,6 @@ Q60T (`GQ55Q60TGUXZG`, firmware `T-NKLDEUC-2743.0`).
 > path before proceeding. You are responsible for any changes you make.
 
 </details>
-
-```mermaid
-flowchart LR
-    Offline["Offline image analysis"] --> Scope["Exact-build findings and limits"]
-    Scope --> Lab["Authorized lab validation"]
-    Lab --> Evidence["Evidence and recovery record"]
-```
 
 Scope: one device and one exact build. Everything below was measured on that
 unit, including the offsets. Sibling models are discussed where the work
@@ -64,7 +73,7 @@ notes.
 | Persistence | Proven over three full power cycles; the hook fires once per boot as `uid=0` and restores the agent |
 | `sdk` as root login | Done. `sdk` resolves to `uid 0` with `/root` and `/bin/bash` and a password, surviving power cycles, with no mode loosened |
 | Root capability | Root over the whole filesystem, block devices, `/proc` and sysctl, but no unsigned binary executes (see below) |
-| App route | Built and offline-tested: a self-signed WGT reaches TV-local SDB and stages the archive launcher; not installed yet |
+| App route | **Live root and boot persistence**: `/root` returns `rc=0`, `amd` starts the service from the per-user `app_onboot` row at every boot, and `POST /cmd` runs bounded root commands |
 | UEP disable | The kernel state word is mapped offline; the physical primitive and write are unproven |
 | Debloat adoption | 29 packages classified, reversible `pkgcmd`, quick settings, kill-switch map and hosts filter prepared |
 
@@ -259,11 +268,13 @@ TV-control port to the Internet.
 |---|---|
 | [`exploits/tiz0wn-root/`](exploits/tiz0wn-root/) | The chain: builder, payloads, session tooling |
 | [`exploits/tiz0wn-app/`](exploits/tiz0wn-app/) | Self-signed app route: local SDB, archive launcher, UEP control; offline-tested |
+| [`exploits/tiz0wn-root/LIVE-RUN-2026-11-04.md`](exploits/tiz0wn-root/LIVE-RUN-2026-11-04.md) | The app-local SDB root run and its exact requirements |
 | [`exploits/tiz0wn-root/LIVE-RUN-2026-10-29.md`](exploits/tiz0wn-root/LIVE-RUN-2026-10-29.md) | The live session: offset derivation, trigger, verification, boot proofs |
 | [`exploits/tiz0wn-root/builder/accounts.py`](exploits/tiz0wn-root/builder/accounts.py) | The `sdk` and `shadow` patch: builder and gates |
 | [`exploits/tiz0wn-root/payload/rootlogin`](exploits/tiz0wn-root/payload/rootlogin) | The same patch as a device script |
 | [`exploits/tiz0wn-root/HANDOFF-SAMSUNG.md`](exploits/tiz0wn-root/HANDOFF-SAMSUNG.md) | Vendor-facing summary |
 | [`docs/app-route-report.md`](docs/app-route-report.md) | Batch report: app route, UEP map, primitive audit and debloat adoption |
+| [`docs/app-persistence-design.md`](docs/app-persistence-design.md) | Prebuilt archive and agent-controlled boot-start design |
 | [`docs/DISCLOSURE.md`](docs/DISCLOSURE.md) | The vulnerability report, timeline and fix guidance |
 | [`docs/uep-q60t.md`](docs/uep-q60t.md) | The guarded UEP state word, addresses and live-check sequence |
 | [`docs/physical-primitives.md`](docs/physical-primitives.md) | The physical-memory candidate audit |
