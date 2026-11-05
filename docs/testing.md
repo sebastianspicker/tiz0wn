@@ -1,5 +1,3 @@
-publish
-
 # Testing
 
 The `exploits/tiz0wn-root/tests/` and `exploits/tiz0wn-app/tests/` files are
