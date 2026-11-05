@@ -2,6 +2,7 @@
 
 An evidence-first security research workspace for a personally owned Samsung
 Q60T (`GQ55Q60TGUXZG`, firmware `T-NKLDEUC-2743.0`).
+_Claude was used to polish and proof-read the code and documentation of this repository._
 
 ## Progress
 
@@ -254,6 +255,7 @@ TV-control port to the Internet.
 
 | Path | Purpose |
 |---|---|
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | What runs where, the two user journeys and the boot path, as diagrams |
 | [`exploits/tiz0wn-root/`](exploits/tiz0wn-root/) | The chain: builder, payloads, session tooling |
 | [`exploits/tiz0wn-root/LIVE-RUN-2026-10-29.md`](exploits/tiz0wn-root/LIVE-RUN-2026-10-29.md) | The live session: offset derivation, trigger, verification, boot proofs |
 | [`exploits/tiz0wn-root/builder/accounts.py`](exploits/tiz0wn-root/builder/accounts.py) | The `sdk` and `shadow` patch: builder and gates |
