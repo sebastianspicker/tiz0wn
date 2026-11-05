@@ -9,7 +9,9 @@ Import [`ui/tokens.css`](../exploits/tiz0wn-app/ui/tokens.css) before a new scre
 | Canvas top / bottom | `--ui-canvas-top`, `--ui-canvas-bottom` | `#eceef0` / `#dfe2e5` | `#0d0f12` / `#16191d` |
 | Background forms | `--ui-form-one`, `--ui-form-two` | `rgba(255,255,255,.34)` / `rgba(185,191,197,.28)` | `rgba(255,255,255,.08)` / `rgba(91,106,120,.22)` |
 | Glass fill top / bottom | `--ui-fill-top`, `--ui-fill-bottom` | `rgba(255,255,255,.30)` / `rgba(246,248,250,.16)` | `rgba(255,255,255,.13)` / `rgba(255,255,255,.05)` |
+| Glass fill mid | `--ui-fill-mid` | `rgba(255,255,255,.22)` | `rgba(255,255,255,.09)` |
 | Rim / inset highlight | `--ui-rim`, `--ui-highlight` | `rgba(255,255,255,.9)` / same | `rgba(255,255,255,.20)` / same |
+| Soft rim (glass edge) | `--ui-rim-soft` | `rgba(255,255,255,.55)` | `rgba(255,255,255,.12)` |
 | Primary ink | `--ui-ink` | `#14171a` | `#f2f4f6` |
 | Secondary ink | `--ui-secondary` | `#4c545c` | `#b3bac1` |
 | Meta ink | `--ui-meta` | `#6f7780` | `#858d95` |
@@ -78,8 +80,8 @@ Use 11 px `--ui-meta` text in the spike's system monospace stack. Keep each entr
 
 ## Glass and motion
 
-Compose glass from the 145-degree `--ui-fill-top` / `--ui-fill-bottom` gradient, the 1 px themed rim, highlight and shadow. Put grain on **one grid-level layer**, behind interaction and above cards: one repeating 64 × 64 tile at `--ui-grain-opacity: .035`, with `pointer-events: none`. Hide that layer in flat mode. Do not put a grain layer on each card.
+Compose glass from a 150-degree three-stop `--ui-fill-top` → `--ui-fill-mid` (55%) → `--ui-fill-bottom` gradient, a 1 px soft rim (`--ui-rim-soft`) carrying a 1 px inset top highlight (`--ui-highlight`), and the themed shadow. The inset highlight rides on top of `--ui-elevation-rest` / `--ui-elevation-focus` for cards, and is already part of `--ui-elevation-control` for pills. Put grain on **one grid-level layer**, behind interaction and above cards: one repeating 64 × 64 tile at `--ui-grain-opacity: .035`, with `pointer-events: none`. Hide that layer in flat mode. Do not put a grain layer on each card.
 
-Animate transform and opacity only. Use `--ui-motion-focus: 200ms` and `--ui-motion-easing: cubic-bezier(.22,.61,.36,1)` for focus; no bounce. The 240 ms token is a reserved scale slot from the brief: the approved spike has no 240 ms transition. Keep motion optional and never require it to recognize focus or selection.
+Animate transform and opacity only. Use `--ui-motion-focus: 200ms` and `--ui-motion-easing: cubic-bezier(.22,.61,.36,1)` for focus; no bounce. Controls and dialog buttons lift `translateY(-.375rem) scale(1.035)`. Carousel tiles never transform (it would break the centred-track geometry), so their focus and selection read through the accent rim, inset highlight and deeper shadow only. The 240 ms token is a reserved scale slot from the brief: the approved spike has no 240 ms transition. Keep motion optional and never require it to recognize focus or selection.
 
 Do not use CSS `filter` or `backdrop-filter`, a second accent, a new font or icon font, a weight above 500, or full-bleed colour blocks. Keep the background forms behind the grid and keep text contrast on the composed surface.
