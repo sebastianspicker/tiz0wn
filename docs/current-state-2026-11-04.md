@@ -56,6 +56,14 @@ sqlite3 -readonly "$db" \
 sh /Users/sebastian/Projects/Git/tiz0wn-codex/exploits/tiz0wn-root/payload/app-boot
 ```
 
+## UI
+
+Paused 2026-11-05. A glass/focus/exit spike is approved and a fixture home
+shell exists, but the carousel still overlaps on the TV while a headless
+Playwright harness passes. Likely cause: **flex `gap` is unsupported in
+Chromium 69** and the harness uses a modern engine. Details and the fix
+direction: `docs/HANDOFF-2026-11-04.md`.
+
 ## Debloat
 
 The reversible ladder is complete: seven targets trialled, verified across a

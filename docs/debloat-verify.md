@@ -7,7 +7,34 @@ sheet**, not a report of a TV run. The package IDs and units come from the
 [T-47](debloat-quick-settings.md), and the commands from `pkgstate`,
 `quickstate`, and `hostsfilter`. The base image does not include the TV's live
 `/opt` registry. Stop a group if its live ID, unit, or setting does not match.
-Keep a recovery channel available; change one group at a time. Never uninstall.
+Keep a recovery channel available; change one group at a time. The group cards
+below use reversible flag changes. Package removal is a separate destructive
+action described next.
+
+## Package removal
+
+`pkgstate plan remove PKG` (or `plan remove --file IDS.txt`) checks the package
+list and global app registry without writing. It reports `package`, `apps`,
+`type`, `system`, `removable`, a `decision=ready|REFUSE reason=…`, and for a
+ready package the exact `pkgcmd -u -n PKG --global` command. A package must have
+exactly one matching `pkgcmd -l` row and at least one valid app ID with a known
+global `app_disable` value. Absent, ambiguous, protected and unreadable packages
+are refused. A `system apps` row is refused with `preload/system package` unless
+`--force` is supplied to `remove` or `plan remove`; `--force` is invalid for
+flag actions. The `removable` field is reported from the row, not proof of a
+working reinstall path.
+
+`pkgstate remove PKG` and `pkgstate remove --file IDS.txt` preflight before
+uninstall. The file form checks every package before the first uninstall, then
+rechecks each immediately before its own removal. Each attempt first appends a
+`snapshot` JSONL line containing `id`, the verbatim `pkgcmd_row`, and an `apps`
+array of every `{app_id, app_disable}` from the global registry, plus `utc`.
+Only after that line is written does it call `pkgcmd -u -n PKG --global`.
+It re-reads `pkgcmd -l` for absence and appends a separate `remove` line with
+`id`, `action`, `rc`, and `utc`. A successful command with a still-present row
+is recorded as failure. The snapshot is evidence of prior state, not a package
+archive; removal is not reversible through `pkgstate enable`, and a file batch
+does not roll back earlier removals if a later one fails.
 
 ## Common readback and pass rule
 
@@ -18,7 +45,8 @@ UID, complete app mapping and both registry flags, and prints one stable line
 per ID beginning `plan ID apps=CSV state=STATE decision=ready|REFUSE
 reason=TOKEN`. A ready line includes the exact proposed `pkgcmd` arguments.
 For these system apps, the state of record is global `app_disable`: the
-proposed write is `pkgcmd -D -t app -n APP --global` (or `-A` to enable), and
+removal is `pkgcmd -u -n PKG --global` and works for `wgt` only (tpk/rpm
+return `-4`); the proposed flag write is `pkgcmd -D -t app -n APP --global` (or `-A` to enable), and
 the plan prints `scope=global`. The per-user flag remains a conflict check,
 not a write scope.
 For a package with two to four app IDs, the plan lists all IDs in `apps=` and
