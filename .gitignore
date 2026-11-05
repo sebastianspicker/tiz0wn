@@ -63,3 +63,6 @@ passwd.window
 accounts.json
 .tiz0wn-private-*
 /exploits/*/out/
+
+# Local render output (heavy, host-generated)
+docs/shots/
