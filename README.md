@@ -3,21 +3,14 @@
 An evidence-first security research workspace for a personally owned Samsung
 Q60T (`GQ55Q60TGUXZG`, firmware `T-NKLDEUC-2743.0`).
 
-> [!IMPORTANT]
-> **Update 2026-11-04 — root works without USB and survives boot on this set.**
-> Verified live on the owned Q60T: `/run` returns root from an installed
-> self-signed WGT, `amd` starts the service from the per-user `app_onboot` row
-> at +48–58 s with no app opened, a bounded worker covers a missed boot list,
-> a token relay keeps Host PC IP at `127.0.0.1` while still carrying `push` and
-> `install` from the Mac, and `POST /cmd` runs bounded root commands.
->
-> **Boundaries, not solved:** Developer Mode and a self-signed certificate are
-> still required; UEP is not disabled; `sdbd` serves one loopback client, so
-> `sdb` and `/cmd` exclude each other, and it wedges after session bursts; an
-> OTA replaces the profile.d hook; one set and firmware only.
->
-> Operate from `docs/current-state-2026-11-04.md`; recovery order is in
-> `docs/HANDOFF-2026-11-04.md`; the relay rule is `docs/sdb-relay.md`.
+## Progress
+
+- **2026-11-04** — app route: root from the installed app, boot persistence,
+  token relay.
+- **2026-11-05** — reversible debloating across the package and unit classes,
+  each target trialled over a reboot and reverted.
+
+Operating detail: `docs/current-state-2026-11-04.md`.
 
 <details>
 <summary>Status and limitations</summary>
@@ -285,6 +278,18 @@ TV-control port to the Internet.
 | [`docs/privileged-services.md`](docs/privileged-services.md) | The privileged-service inventory: shell-argv versus argv-direct sinks |
 | [`docs/testing.md`](docs/testing.md) | What the public suites cover, what stays local |
 | [`SECURITY.md`](SECURITY.md) | Reporting, what is public, how to run it safely |
+
+## Roadmap
+
+- **Liquid-glass TV UI** — future milestone: replace the whole TV UI (home,
+  sources, apps, settings, now-playing, OSD) with a minimalist, high-craft
+  surface in a 2026 Apple TV idiom, including boot and HOME takeover.
+  Constraints, hard problems, phases and acceptance:
+  `docs/milestone-liquid-glass-ui.md`. Reference for interaction ideas only:
+  `wingedpanther/cleanmytv`.
+- Bridge supervision and a `/cmd`-based maintenance path, so routine work never
+  needs an `sdb` session.
+- Re-apply checklist and cold-boot drill after an OTA.
 
 ## Safety and scope
 

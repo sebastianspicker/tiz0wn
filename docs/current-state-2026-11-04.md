@@ -3,7 +3,9 @@
 One owned `GQ55Q60TGUXZG` (Q60T, KantSu2, `T-NKLDEUC-2743.0`). Everything below
 is on that one set; nothing is claimed for another model or firmware.
 
-> **Device status:** recovered at 19:19Z. A clean boot started the agent, the
+> **Last check, 2026-11-05 09:40Z:** after standby/wake, no reboot (uptime
+> 9172 s), `/run` and `/cmd` return root, flags `true/true`, relay running,
+> app service alive. **Device status:** recovered at 19:19Z. A clean boot started the agent, the
 > relay and the service without an app opened; `/cmd` and `/run` return root
 > and the relay carries `push`. The earlier wedge needed one power cycle; see
 > `docs/HANDOFF-2026-11-04.md`.
@@ -53,6 +55,26 @@ sqlite3 -readonly "$db" \
   "SELECT app_onboot,app_autorestart FROM package_app_info WHERE app_id='tiz0wnprob.Service';"
 sh /Users/sebastian/Projects/Git/tiz0wn-codex/exploits/tiz0wn-root/payload/app-boot
 ```
+
+## Debloat
+
+The reversible ladder is complete: seven targets trialled, verified across a
+boot in both directions, and reverted. Current state is baseline — every
+`app_disable=false`, `units.off` empty, all four affected units loaded and
+active.
+
+Two levers exist and are not interchangeable:
+
+| Target class | Lever | Proven |
+| --- | --- | --- |
+| `app_launcher -s` app | `pkgstate --global` | multi-assistant, ScreenMirroring, multiscreen |
+| daemon or direct-binary unit | `unitstate` off-list (runtime masks, re-applied at boot) | ACR (3 units), nfc-monitor |
+| multi-app package | `pkgstate` single-ID transaction | calendar (2 apps) |
+| cross-package feature | `pkgstate --file` transaction | COSS (2 packages) |
+
+Traps recorded: `--uid` is a no-op here; unit masks need `LoadState`; the boot
+hook races systemd and must retry then stop; batch files belong in `/opt`.
+`docs/debloat-plan-2026-11-05.md` is the full record.
 
 ## Single-client rule
 

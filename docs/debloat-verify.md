@@ -11,6 +11,42 @@ Keep a recovery channel available; change one group at a time. Never uninstall.
 
 ## Common readback and pass rule
 
+Before any package action, inspect one candidate with `pkgstate plan disable ID`
+or `pkgstate plan enable ID`. For a proposed batch, use
+`pkgstate plan disable --file IDS.txt` (or `enable`). The plan reads the owner
+UID, complete app mapping and both registry flags, and prints one stable line
+per ID beginning `plan ID apps=CSV state=STATE decision=ready|REFUSE
+reason=TOKEN`. A ready line includes the exact proposed `pkgcmd` arguments.
+For these system apps, the state of record is global `app_disable`: the
+proposed write is `pkgcmd -D -t app -n APP --global` (or `-A` to enable), and
+the plan prints `scope=global`. The per-user flag remains a conflict check,
+not a write scope.
+For a package with two to four app IDs, the plan lists all IDs in `apps=` and
+the ordered global `pkgcmd` sequence on one line. Every app must be enabled,
+valid and free of a per-user/global conflict for a disable plan (disabled for
+an enable plan); one unready app refuses the whole package. Five or more app
+IDs refuse with `reason=too_many`. A multi-app action checks every app before
+its first write, writes in ascending app-ID order, and reads back each write.
+On failure it reverses changed apps in descending order and reports
+`rollback=restored` or `rollback=unconfirmed` with the restored app IDs. A
+multi-app package remains a separate trial requiring the live feature and
+recovery gates in the [ladder](debloat-plan-2026-11-05.md); an offline ready
+plan does not admit it automatically.
+For an actual `disable|enable --file IDS.txt` action, the file is one transaction:
+the helper preflights every resolved app before writing, applies the lines in
+file order, reads back each app, and reverses changed apps in reverse order if
+one fails. The report lists confirmed restored app IDs while the command exits
+with the original failure code. COSS and calendar each have separate package
+IDs for their dotted sibling apps; name both package IDs on separate lines in
+an explicitly reviewed file batch. They are not one multi-app package. A
+successful offline plan alone does not authorize a live batch.
+`--file` accepts at most 65536 bytes and 32 nonempty IDs; any refusal suppresses
+the entire ready sequence. A refusal or unknown state exits nonzero. A plan
+does not call `pkgcmd`, append the log, change a registry, or act on a unit.
+Its `unit` and `unit_active`/`unit_pid`/`unit_load` fields are inspection hints
+with `unit_proof=unproven`; they do not establish process ownership or a safe
+disable. Recheck all live gates immediately before the actual action.
+
 Use the staged scripts by **content**, as required by this TV's UEP behavior.
 Set `PKG`, `QUICK`, and `HOSTSFILTER` to their actual staged script paths before
 running any row. On the TV, `pkgcmd` must be available and `pkgstate` must run
@@ -46,8 +82,14 @@ last line. A successful disable has this shape, with the row's exact ID and a
 real UTC timestamp; an enable has `"action":"enable"`:
 
 ```json
-{"id":"org.tizen.acr-service-app","action":"disable","rc":0,"utc":"YYYY-MM-DDTHH:MM:SSZ"}
+{"id":"org.tizen.acr-service-app","app_id":"org.tizen.acr-service-app","action":"disable","rc":0,"utc":"YYYY-MM-DDTHH:MM:SSZ"}
 ```
+
+Single-ID records retain that shape. Multi-app and file-batch attempts add `"tx"` (UTC
+`YYYYMMDDTHHMMSSZ` plus shell PID), with one record per app. Compensating
+writes also have `"revert":true`; their `action` remains the requested
+`disable` or `enable`. Review the complete transaction's records and rollback
+report rather than only its last line.
 
 The **positive check** for a package row is a successful record plus a live
 `inactive`/`dead` unit and `MainPID=0`, with no matching service process after
@@ -70,6 +112,35 @@ enable lines, so log text itself is not expected to equal its pre-state. If
 enabling does not restart a previously active unit, reboot and repeat the
 comparison before declaring reversal complete.
 
+## Direct-binary and separate-daemon units
+
+The live 2026-11-05 correction separates these from package state. ACR uses
+`acr.path`, `acr.service`, and `contents-recognition-service.service`; NFC runs
+its binary directly from `com.samsung.tv.nfc-monitor.service`. Disabling the
+corresponding app does not establish that these units stopped. Inspect each
+unit's `LoadState`, `ActiveState`, `UnitFileState`, command and process before
+choosing a unit trial. Keep the package and unit records separate.
+
+For a reviewed unit trial, stage `payload/unitstate` under `/opt` and invoke it
+by content, as with `pkgstate`. `unitstate off UNIT...` writes one validated
+name per line to `$D/units.off` (default `$D=/opt/usr/share/tvroot`), then
+applies `systemctl mask --runtime UNIT` before `systemctl stop UNIT` for each
+name. The boot hook validates the whole file and reapplies runtime masks after
+SMACK setup and before requesting the agent. A runtime mask alone dies on
+reboot; persistence depends on that off-list and hook. `unitstate list` prints
+each listed name with live `ActiveState` and `Masked` readback. The default
+per-unit JSONL record is `$D/unitstate.jsonl` with `unit`, `action`, `rc`, and
+`utc` fields.
+
+After an `off`, require a successful record, a masked unit and the expected
+process absence; repeat after reboot with recovery available. For reversal,
+run `unitstate on UNIT...`, which removes the name atomically, unmasks it at
+runtime, and starts it only if installed. Verify the unit and feature baseline
+immediately and after another reboot. A pre-existing inactive or failed state
+is restored by comparison with its own baseline, not by requiring `active`.
+Do not infer package-state success from a unit mask or infer zero telemetry
+from process absence.
+
 ## Group cards
 
 The `pre` and `post` cells name commands to run immediately around the stated
@@ -77,6 +148,8 @@ action. In each package row, also run the common readbacks and six negative
 checks above. The post `unit_state` must show a stopped unit for a positive
 result; if it does not, reverse and mark the group **not proven**. Do not add a
 runtime mask to make an unproven package disable appear successful.
+The `tracking` card predates the live ACR correction and is superseded by the
+unit-class procedure above. Do not run its package disable as an ACR-daemon test.
 
 | Group | Pre-state and expected count | Exact action and record | Post-state and positive evidence | Reversal and equality |
 | --- | --- | --- | --- | --- |

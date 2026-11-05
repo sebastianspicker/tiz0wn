@@ -68,7 +68,10 @@ sdb connect 127.0.0.1:<printed port>
 ```
 
 The connector binds loopback only and prints the chosen port. It holds the
-token, never logs it, and exits on a listener error.
+token, never logs it, and exits on a listener error. Stop it with
+`pkill -f bridge-connect.py`; it listens on `26102` by default and can be left
+running while idle (`/cmd` still works, because an idle connector opens no
+upstream connection).
 
 ## Boot and disarm
 
