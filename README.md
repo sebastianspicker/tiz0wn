@@ -3,6 +3,13 @@
 An evidence-first security research workspace for a personally owned Samsung
 Q60T (`GQ55Q60TGUXZG`, firmware `T-NKLDEUC-2743.0`).
 
+## Progress
+
+- **2026-11-04** — app route: root from the installed app, boot persistence,
+  token relay.
+- **2026-11-05** — reversible debloating across the package and unit classes,
+  each target trialled over a reboot and reverted.
+
 <details>
 <summary>Status and limitations</summary>
 
@@ -20,13 +27,6 @@ Q60T (`GQ55Q60TGUXZG`, firmware `T-NKLDEUC-2743.0`).
 > path before proceeding. You are responsible for any changes you make.
 
 </details>
-
-```mermaid
-flowchart LR
-    Offline["Offline image analysis"] --> Scope["Exact-build findings and limits"]
-    Scope --> Lab["Authorized lab validation"]
-    Lab --> Evidence["Evidence and recovery record"]
-```
 
 Scope: one device and one exact build. Everything below was measured on that
 unit, including the offsets. Sibling models are discussed where the work
