@@ -2,6 +2,14 @@
 
 An evidence-first security research workspace for a personally owned Samsung
 Q60T (`GQ55Q60TGUXZG`, firmware `T-NKLDEUC-2743.0`).
+_Claude was used to polish and proof-read the code and documentation of this repository._
+
+## Progress
+
+- **2026-11-04** — app route: root from the installed app, boot persistence,
+  token relay.
+- **2026-11-05** — reversible debloating across the package and unit classes,
+  each target trialled over a reboot and reverted.
 
 ## Progress
 
@@ -259,6 +267,7 @@ TV-control port to the Internet.
 
 | Path | Purpose |
 |---|---|
+| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | What runs where, the two user journeys and the boot path, as diagrams |
 | [`exploits/tiz0wn-root/`](exploits/tiz0wn-root/) | The chain: builder, payloads, session tooling |
 | [`exploits/tiz0wn-app/`](exploits/tiz0wn-app/) | Self-signed app route: local SDB, archive launcher, UEP control; offline-tested |
 | [`exploits/tiz0wn-root/LIVE-RUN-2026-11-04.md`](exploits/tiz0wn-root/LIVE-RUN-2026-11-04.md) | The app-local SDB root run and its exact requirements |
