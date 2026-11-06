@@ -42,8 +42,8 @@ Use radii 26 px for cards and the confirm sheet, 34 px for the hero and 24 px fo
 ## Shared states and focus
 
 - **Rest:** show the glass fill, rim and rest elevation. The flat setting substitutes `--ui-flat-card` and hides decorative forms and grain.
-- **Focus:** draw a 2 px `--ui-accent` outline at 3 px offset. Add at least one non-colour change: the spike lifts a card 6 px, scales it to 1.028 and increases its shadow. The home carousel uses an accent rim, deeper shadow and `z-index: 3`; focus never changes tile size. Keep border width at 1 px.
-- **Selected:** use the accent rim, set `aria-pressed="true"`, and update the status line. The spike changes the subtitle to “Selected”; the home carousel keeps its meta line. Selection persists when focus moves.
+- **Focus:** draw a 2 px `--ui-accent` outline at 3 px offset. Add at least one non-colour change: the spike lifts a card 6 px, scales it to 1.028 and increases its shadow. The home row uses an accent rim, deeper shadow and `z-index: 3`; focus never changes tile size. Keep border width at 1 px.
+- **Selected:** use the accent rim, set `aria-pressed="true"`, and update the status line. The spike changes the subtitle to “Selected”; the home row keeps its meta line. Selection persists when focus moves.
 - **Disabled:** keep the component's geometry and label, remove it from remote focus and activation, and reduce its visual emphasis without relying on colour alone. The spike has no disabled example; do not infer a new palette colour from it.
 
 ## Hero card
@@ -54,13 +54,11 @@ The hero is optional. When used, span two grid columns and rows at the spike's 3
 
 Use the three-column grid's 16 vh row, 24 px gap, 30 px inner padding and 26 px radius. Put the 26 px title above a single-line, 16 px secondary subtitle. Use `--ui-elevation-rest` (`0 10px 24px`) and `--ui-elevation-focus` (`0 16px 34px`) with the theme shadow colour. Apply the shared states; selected keeps a 1 px accent border.
 
-## Home carousel
+## Home row
 
-Use an endless track with three consecutive sets of the seven home fixtures. Each set is a flex row and the outer sets have `aria-hidden="true"`; each clone has a unique suffixed id and class. Use a `2vw` gap both within and between sets, 12 px vertical shelf padding and `6vw` horizontal padding. Each card uses `flex: 0 0 18vw`, `box-sizing: border-box` and a 26 vh height, with the same 26 px radius and existing inner padding. The viewport clips the track. Use no negative margins, tile scaling or native scrolling. Each card holds its bottom-left label at 1.15 rem and one secondary meta line at .72 rem. Keep the controls and status line below the carousel.
+Show the four home fixtures (Root status, Archive root, Debloat, Console) once, as a static row centered in `.shelf` with `justify-content: center`; there are no clones and no transform. Space the cards with a `2vw` right margin (flexbox `gap` is unsupported on the TV's Chromium 69), with 12 px vertical shelf padding and `6vw` horizontal padding (`8vw` on the left to offset the last card's margin). Each card uses `flex: 0 0 18vw`, `box-sizing: border-box` and a 26 vh height, with the same 26 px radius and existing inner padding. Each card holds its bottom-left label at 1.15 rem and one secondary meta line at .72 rem. Keep the controls and status line below the row.
 
-Start on index 7, the first card of the middle set. `.viewport` is the positioned, clipped flex child; `.shelf` stays unpositioned so each card's `offsetLeft` uses the viewport as its offset parent. On each cursor move, compute `offsetFor(cardLeft, inset) => -(cardLeft - inset)`, using the active card's `offsetLeft` and `inset = (viewport.clientWidth - card.offsetWidth) / 2`. This places the focused tile at the center and leaves the preceding tile fully visible at a wrap seam. Translate the track by that offset with a 240 ms ease. After the transform transition ends, or after a 260 ms fallback, normalise an index in the third set by subtracting 7 and one in the first set by adding 7. Apply that identical visual position with transition disabled for one frame. On resize, reapply the offset without transition. Left and Right continue through the adjacent copy in either direction. Focus uses `focus({preventScroll:true})`, with a guarded fallback for older engines, so focusing a transformed tile does not scroll the page. Focus uses the accent rim, deeper focus shadow, `z-index: 3` and the shared outline without changing tile size; Up moves to the header and Down to the controls.
-
-The [host render harness](../exploits/tiz0wn-app/tests/render/README.md) checks 1920×1080 and 3840×2160 after initial focus, four Right moves, a right wrap, and three Left moves from the first tile. It asserts 17.9–18.1 vw tile width, 1.6–2.6 vw adjacent gaps, no intersection or page scroll, centered focus, and both seam tiles fully visible. The host run measured 18.0 vw card width, 2.0 vw adjacent gaps, under 0.4 px focus-center error, zero scroll and zero scroll events at both sizes. The wrap seam measured 38.4 px at 1080p and 76.8 px at 4K. Those values correspond to 345.6/691.2 px cards and a 384/768 px tile step. Centering moves the active tile's left edge from the old 6 vw inset to 41 vw: a 672 px shift at 1080p and 1344 px at 4K. The harness writes screenshots to `docs/shots/`, which is git-ignored.
+Start on the first card. Left and Right move focus among the four cards and clamp at both ends; Up and Down move between the shelf and the controls. Focus uses `focus({preventScroll:true})`, with a guarded fallback for older engines. Focus uses the accent rim, deeper focus shadow, `z-index: 3` and the shared outline without changing tile size. Enter opens `tools.html#<id>` for the card.
 
 ## Control pill
 
@@ -68,7 +66,7 @@ Use a 48 px height, 24 px radius, 22 px horizontal padding, 18 px medium text, 1
 
 ## Status line
 
-Put one 16 px secondary line below the carousel, with `aria-live="polite"`. Keep it on one line and truncate overflow. It reports selection or the frame sample; it is not focusable, selectable or a disabled target.
+Put one 16 px secondary line below the row, with `aria-live="polite"`. Keep it on one line and truncate overflow. It reports selection or the frame sample; it is not focusable, selectable or a disabled target.
 
 ## Confirm sheet
 
@@ -82,6 +80,6 @@ Use 11 px `--ui-meta` text in the spike's system monospace stack. Keep each entr
 
 Compose glass from a 150-degree three-stop `--ui-fill-top` → `--ui-fill-mid` (55%) → `--ui-fill-bottom` gradient, a 1 px soft rim (`--ui-rim-soft`) carrying a 1 px inset top highlight (`--ui-highlight`), and the themed shadow. The inset highlight rides on top of `--ui-elevation-rest` / `--ui-elevation-focus` for cards, and is already part of `--ui-elevation-control` for pills. Put grain on **one grid-level layer**, behind interaction and above cards: one repeating 64 × 64 tile at `--ui-grain-opacity: .035`, with `pointer-events: none`. Hide that layer in flat mode. Do not put a grain layer on each card.
 
-Animate transform and opacity only. Use `--ui-motion-focus: 200ms` and `--ui-motion-easing: cubic-bezier(.22,.61,.36,1)` for focus; no bounce. Controls and dialog buttons lift `translateY(-.375rem) scale(1.035)`. Carousel tiles never transform (it would break the centred-track geometry), so their focus and selection read through the accent rim, inset highlight and deeper shadow only. The 240 ms token is a reserved scale slot from the brief: the approved spike has no 240 ms transition. Keep motion optional and never require it to recognize focus or selection.
+Animate transform and opacity only. Use `--ui-motion-focus: 200ms` and `--ui-motion-easing: cubic-bezier(.22,.61,.36,1)` for focus; no bounce. Controls and dialog buttons lift `translateY(-.375rem) scale(1.035)`. Home row tiles never transform, so their focus and selection read through the accent rim, inset highlight and deeper shadow only. The 240 ms token is a reserved scale slot from the brief: the approved spike has no 240 ms transition. Keep motion optional and never require it to recognize focus or selection.
 
 Do not use CSS `filter` or `backdrop-filter`, a second accent, a new font or icon font, a weight above 500, or full-bleed colour blocks. Keep the background forms behind the grid and keep text contrast on the composed surface.
