@@ -19,6 +19,8 @@ Import [`ui/tokens.css`](../exploits/tiz0wn-app/ui/tokens.css) before a new scre
 | Shadow colour | `--ui-shadow` | `rgba(28,32,38,.10)` | `rgba(0,0,0,.45)` |
 | Flat card / canvas | `--ui-flat-card`, `--ui-flat-canvas` | `#f6f7f8` / `#e4e6e9` | `#1c2025` / `#0d0f12` |
 | Confirm veil | `--ui-veil` | `rgba(28,32,38,.28)` | `rgba(0,0,0,.45)` |
+| Photo scrim top / bottom | `--ui-photo-scrim-top`, `--ui-photo-scrim-bottom` | `rgba(236,238,240,.50)` / `rgba(223,226,229,.66)` | `rgba(13,15,18,.42)` / `rgba(13,15,18,.62)` |
+| Glass base (under fill, over photo) | `--ui-glass-base` | `rgba(246,248,250,.42)` | `rgba(13,15,18,.50)` |
 
 Check secondary text against the **composed** fill and the background behind it in both themes. Require contrast ≥ 4.5:1. If it fails, darken a form or raise fill alpha until it passes; the CSS values alone do not prove contrast over arbitrary content. Check meta text at its rendered size and context too.
 
@@ -56,9 +58,15 @@ Use the three-column grid's 16 vh row, 24 px gap, 30 px inner padding and 26 px 
 
 ## Home row
 
-Show the four home fixtures (Root status, Archive root, Debloat, Console) once, as a static row centered in `.shelf` with `justify-content: center`; there are no clones and no transform. Space the cards with a `2vw` right margin (flexbox `gap` is unsupported on the TV's Chromium 69), with 12 px vertical shelf padding and `6vw` horizontal padding (`8vw` on the left to offset the last card's margin). Each card uses `flex: 0 0 18vw`, `box-sizing: border-box` and a 26 vh height, with the same 26 px radius and existing inner padding. Each card holds its bottom-left label at 1.15 rem and one secondary meta line at .72 rem. Keep the controls and status line below the row.
+Show the four home fixtures (Root status, Archive root, Debloat, Console) once, as a static row centered in `.shelf` with `justify-content: center`; there are no clones and no transform. Space the cards with a `2vw` right margin (flexbox `gap` is unsupported on the TV's Chromium 69), with 12 px vertical shelf padding and `6vw` horizontal padding (`8vw` on the left to offset the last card's margin). Each card uses `flex: 0 0 18vw`, `box-sizing: border-box` and an 18 vh height, with the same 26 px radius and existing inner padding. Each card holds its bottom-left label at 1.15 rem and one secondary meta line at .72 rem. Keep the controls and status line below the row.
 
 Start on the first card. Left and Right move focus among the four cards and clamp at both ends; Up and Down move between the shelf and the controls. Focus uses `focus({preventScroll:true})`, with a guarded fallback for older engines. Focus uses the accent rim, deeper focus shadow, `z-index: 3` and the shared outline without changing tile size. Enter opens `tools.html#<id>` for the card.
+
+## Background and launcher rows
+
+The home backdrop is `assets/eso1006a-1920.jpg` (Orion Nebula, ESO/J. Emerson/VISTA, CC BY 4.0; licence beside it), a 1920 px copy of the 4000 px original, under the theme photo scrim. The credit line stays visible at the bottom right. Glass cards, tiles and pills layer the fill gradient over `--ui-glass-base` so text keeps contrast over the bright core. The flat setting and the Source background hide the photo.
+
+Above the Tools row, the header shows the clock (display size) and date; then two rows adapted from arn0-tv: **Apps** (up to eight consumer apps from `tizen.application.getAppsInfo`, sorted by name; Enter launches) and **Inputs** (HDMI ports from `systeminfo` `VIDEOSOURCE`; Enter sets the source, then opens `org.tizen.tv-viewer`). Rows with no items stay hidden and are skipped by Up/Down. Tiles use the card rim, radius and focus rules; they space with a right margin, not flex `gap`. Focus starts on the first app once the list arrives, unless the viewer has already moved.
 
 ## Control pill
 

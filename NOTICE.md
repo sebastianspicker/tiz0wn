@@ -7,8 +7,20 @@ licensed under the MIT License (see `LICENSE`).
 
 - No Samsung firmware, and no part of any firmware image, decrypted or
   otherwise. Firmware is referenced by its official download URL and hash only.
-- No third-party source is vendored. Tools are referenced by URL and stay under
+- No third-party source is vendored, except the two items under "Bundled third-party content". Tools are referenced by URL and stay under
   their own licenses.
+
+## Bundled third-party content
+
+- `exploits/tiz0wn-app/assets/eso1006a.jpg` (and its 1920 px copy): Orion Nebula
+  (Messier 42) from VISTA. Credit: ESO/J. Emerson/VISTA. Acknowledgment: Cambridge
+  Astronomical Survey Unit. Licensed CC BY 4.0
+  (https://creativecommons.org/licenses/by/4.0/); source
+  https://www.eso.org/public/images/eso1006a/. The 1920 px copy is a resized version.
+  Terms: `exploits/tiz0wn-app/assets/eso1006a.license`.
+- `exploits/tiz0wn-app/home.html`: the clock, Apps and Inputs rows and the consumer-app
+  filter are adapted from [arn0-tv](https://github.com/NelsonEU/arn0-tv),
+  Copyright (c) 2026 Arnaud Etienne, MIT License (same terms as `LICENSE`).
 
 ## Third-party work used or investigated
 
