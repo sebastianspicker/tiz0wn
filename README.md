@@ -10,15 +10,43 @@ _Claude was used to polish and proof-read the code and documentation of this rep
   token relay.
 - **2026-11-05** — reversible debloating across the package and unit classes,
   each target trialled over a reboot and reverted.
-
-## Progress
-
-- **2026-11-04** — app route: root from the installed app, boot persistence,
-  token relay.
-- **2026-11-05** — reversible debloating across the package and unit classes,
-  each target trialled over a reboot and reverted.
+- **2026-11-07** — a new TV menu for the app: a typographic home and tools page,
+  verified on the set. It lists the installed apps and HDMI inputs and runs over
+  the live HDMI picture. Pointing the Home key at it is blocked on this
+  firmware; see [the Home-key plan](docs/home-key-menu-plan.md).
 
 Operating detail: `docs/current-state-2026-11-04.md`.
+
+## TV menu
+
+![The app's home screen: a large clock top left, and an index of Apps, Inputs, Tools and Settings at the bottom over the Orion Nebula](docs/screenshots/home-menu-2026-11-07/home-1920.jpg)
+
+The app's home is a typographic index: one row each for apps, inputs, tools and
+settings, labelled in a narrow left column. The focused item is white and
+underlined, and the active row's label turns blue. Typeset in Inter.
+[`docs/ui-system.md`](docs/ui-system.md) is the design contract.
+[`docs/screenshots/home-menu-2026-11-07/`](docs/screenshots/home-menu-2026-11-07/)
+has the full set: home, tools, the band over a live picture and over a white
+frame, at 1080p and 720p. `exploits/tiz0wn-app/tests/shots/shoot.sh` renders
+them again.
+
+What was verified on the Q60T (2026-11-07):
+
+- **Real data.** Home lists the installed apps and HDMI inputs and launches them.
+  This needs the packaged app origin: the loopback page origin
+  (`http://127.0.0.1:18735`) gets no `tizen` API at all. The tools and the
+  probe page stay on loopback because the root service accepts only that origin.
+- **Live picture.** Settings → Live TV, or the band (Opens to → Band), keeps the
+  HDMI picture playing behind the transparent page. The band's lower third keeps
+  every text tone at 4.5:1 contrast or better over a white frame; a test checks it.
+- **Smooth on Chromium 69.** Moving between rows had made the background photo
+  flicker. Two changes fixed it: no per-item opacity transitions, and the
+  active-row class set on the index instead of `<html>`.
+- **Home key: not remapped.** Both pieces of the Tizen 6.5 method are missing on
+  Tizen 5.5: the `db/appfw/home_appid` key, and `aul_get_default_app` in
+  `libaul.so.0`. The safety chain refused to save a baseline, so nothing on the
+  TV's Home routing changed. Details and the offline-tested guard and trial
+  tooling are in [`docs/home-key-menu-plan.md`](docs/home-key-menu-plan.md).
 
 <details>
 <summary>Status and limitations</summary>
@@ -277,6 +305,9 @@ TV-control port to the Internet.
 | [`exploits/tiz0wn-root/HANDOFF-SAMSUNG.md`](exploits/tiz0wn-root/HANDOFF-SAMSUNG.md) | Vendor-facing summary |
 | [`docs/app-route-report.md`](docs/app-route-report.md) | Batch report: app route, UEP map, primitive audit and debloat adoption |
 | [`docs/app-persistence-design.md`](docs/app-persistence-design.md) | Prebuilt archive and agent-controlled boot-start design |
+| [`docs/ui-system.md`](docs/ui-system.md) | The TV menu's design contract: tokens, typography, focus, band |
+| [`docs/home-key-menu-plan.md`](docs/home-key-menu-plan.md) | The Home-key menu plan, its TV findings and why the remap is blocked |
+| [`docs/screenshots/home-menu-2026-11-07/`](docs/screenshots/home-menu-2026-11-07/) | Rendered screenshots of the menu at 1080p and 720p |
 | [`docs/DISCLOSURE.md`](docs/DISCLOSURE.md) | The vulnerability report, timeline and fix guidance |
 | [`docs/uep-q60t.md`](docs/uep-q60t.md) | The guarded UEP state word, addresses and live-check sequence |
 | [`docs/physical-primitives.md`](docs/physical-primitives.md) | The physical-memory candidate audit |
@@ -292,7 +323,10 @@ TV-control port to the Internet.
 
 - **Liquid-glass TV UI** — future milestone: replace the whole TV UI (home,
   sources, apps, settings, now-playing, OSD) with a minimalist, high-craft
-  surface in a 2026 Apple TV idiom, including boot and HOME takeover.
+  surface in a 2026 Apple TV idiom, including boot and HOME takeover. The app's
+  home and tools pages are done and verified (see [TV menu](#tv-menu)). HOME
+  takeover is blocked on Tizen 5.5 until the set's own `XF86Home` routing is
+  measured; see `docs/home-key-menu-plan.md`.
   Constraints, hard problems, phases and acceptance:
   `docs/milestone-liquid-glass-ui.md`. Reference for interaction ideas only:
   `wingedpanther/cleanmytv`.

@@ -40,7 +40,7 @@ still need.
 - **No photo background in band mode.** `home.html#band` hides `.backdrop`;
   only the bottom strip is drawn, over the live source.
 - **Unverified on the TV:** whether the picture shows at all behind the
-  transparent page. `home.html`'s "Background: Source" toggle exercises exactly
+  transparent page. `home.html`'s **Live TV** setting exercises exactly
   this `BEHIND` call; the 2026-11-05 handoff still lists it as unverified. It is
   the first thing a trial settles.
 
@@ -50,7 +50,7 @@ still need.
 
 - A `band` mode (URL hash `#band`, armed flag in `localStorage`), rendered as
   one bottom strip: the Apps and Inputs rows only. Header, tools row, controls,
-  credit and photo backdrop are hidden by the `.band` class.
+  and photo backdrop are hidden by the `.band` class.
 - On entry it calls `tvwindow.show(..., 'MAIN', 'BEHIND')` so the source stays
   visible; `Back` calls `getCurrentApplication().hide()` instead of the exit
   sheet, handing the screen back to whatever was behind.
@@ -60,14 +60,16 @@ still need.
   back to Samsung's menus is always on screen.
 - **Lifecycle logging** for the trial: `visibilitychange`, the requested
   app-control operation, and any unrecognised key code are written to the
-  diagnostics line (and `console.log`). This is how we learn what a real Home
-  press delivers and whether the band returns to the foreground, without
-  registering or swallowing HOME.
-- A **Home band** control pill arms/disarms the mode. When armed, `index.html`
-  redirects app start (and a remapped Home) straight to `home.html#band`.
+  diagnostics line (and `console.log`). The line is forced visible in band
+  mode because the controls that normally toggle it are hidden. This is how
+  we learn what a real Home press delivers and whether the band returns to the
+  foreground, without registering or swallowing HOME.
+- The **Opens to** setting (Home / Band) arms/disarms the mode. App start
+  forwards from `index.html` to `home.html`, or straight to `home.html#band`
+  when armed (and so does a remapped Home).
 
 The full (non-band) home screen is unchanged in behaviour: rails above the
-tools row, `Back` opens the exit sheet, no `tvwindow` call on start.
+tools row, `Back` opens the quit sheet, no `tvwindow` call on start.
 
 Covered by `exploits/tiz0wn-app/tests/launcher.test.js` (full home and band
 mode, escape tiles, `BEHIND` on entry and on resume, `Back` hides the app) and
@@ -114,11 +116,11 @@ or entry point is missing. `--self-test` runs offline (passes locally).
 ## Trial order (each step reversible, A only)
 
 1. **Picture check, no system change.** Install the WGT, watch an HDMI input,
-   open the app, toggle **Background: Source**. No picture ⇒ route A is dead,
+   open the app, set **Live TV** to On. No picture ⇒ route A is dead,
    only B remains.
 2. **Read-only query.** `homestate query` through the root agent's `/cmd`. Save
    the baseline off the TV (`homestate baseline`, copied elsewhere).
-3. **Band layout.** Arm the band pill; confirm app start opens `home.html#band`
+3. **Band layout.** Set **Opens to** to Band; confirm app start opens `home.html#band`
    with the source behind and the rails usable. No Home remap yet.
 4. **Remap trial.** `homestate apply <our app id>`. Press Home from TV, from
    HDMI and from a store app. Record from the diagnostics line and a filmed

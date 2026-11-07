@@ -13,20 +13,24 @@ Import [`ui/tokens.css`](../exploits/tiz0wn-app/ui/tokens.css) before a new scre
 | Rim / inset highlight | `--ui-rim`, `--ui-highlight` | `rgba(255,255,255,.9)` / same | `rgba(255,255,255,.20)` / same |
 | Soft rim (glass edge) | `--ui-rim-soft` | `rgba(255,255,255,.55)` | `rgba(255,255,255,.12)` |
 | Primary ink | `--ui-ink` | `#14171a` | `#f2f4f6` |
+| Clock / overlay ink | `--ui-clock-ink` | `#ffffff` | `#ffffff` |
+| Dark surface / rim / ink | `--ui-dark-base`, `--ui-dark-rim`, `--ui-dark-ink` | `rgba(0,0,0,.58)` / `rgba(255,255,255,.26)` / `#ffffff` | same |
+| Dark surface gloss / secondary / focus | `--ui-dark-gloss`, `--ui-dark-secondary`, `--ui-dark-accent` | `rgba(255,255,255,.10)` / `rgba(255,255,255,.72)` / `#8ec3dc` | same |
+| Flat dark surface | `--ui-dark-flat` | `rgba(0,0,0,.80)` | same |
 | Secondary ink | `--ui-secondary` | `#4c545c` | `#b3bac1` |
 | Meta ink | `--ui-meta` | `#6f7780` | `#858d95` |
 | Focus and selection | `--ui-accent` | `#2f6f8f` | `#8ec3dc` |
 | Shadow colour | `--ui-shadow` | `rgba(28,32,38,.10)` | `rgba(0,0,0,.45)` |
 | Flat card / canvas | `--ui-flat-card`, `--ui-flat-canvas` | `#f6f7f8` / `#e4e6e9` | `#1c2025` / `#0d0f12` |
 | Confirm veil | `--ui-veil` | `rgba(28,32,38,.28)` | `rgba(0,0,0,.45)` |
-| Photo scrim top / bottom | `--ui-photo-scrim-top`, `--ui-photo-scrim-bottom` | `rgba(236,238,240,.50)` / `rgba(223,226,229,.66)` | `rgba(13,15,18,.42)` / `rgba(13,15,18,.62)` |
+| Band source scrim | `--ui-source-scrim-bottom` | `rgba(0,0,0,.9)` | `rgba(0,0,0,.9)` |
 | Glass base (under fill, over photo) | `--ui-glass-base` | `rgba(246,248,250,.42)` | `rgba(13,15,18,.50)` |
 
 Check secondary text against the **composed** fill and the background behind it in both themes. Require contrast ≥ 4.5:1. If it fails, darken a form or raise fill alpha until it passes; the CSS values alone do not prove contrast over arbitrary content. Check meta text at its rendered size and context too.
 
 ## Type and layout
 
-Use `--ui-font` (`-apple-system, "Segoe UI", Arial, sans-serif`) for the interface. The spike's diagnostic line uses the existing `--ui-font-diagnostic` system monospace stack. Use only weights 300 and 500.
+Use `--ui-font` (`"Inter", -apple-system, "Segoe UI", Arial, sans-serif`) for the interface. Home bundles Inter 300 and 500 (Latin subset, `assets/inter-*.woff2`, SIL OFL 1.1 in `assets/inter.license`) with `@font-face`; pages without it fall back to the system stack. Inter needs less tracking than Arial: index items use `-.012em`, the clock `-.045em`, uppercase labels `.16em`. The spike's diagnostic line uses the existing `--ui-font-diagnostic` system monospace stack. Use only weights 300 and 500.
 
 | Role | Size | Weight | Leading | Tracking | Use |
 | --- | --- | --- | --- | --- | --- |
@@ -44,8 +48,8 @@ Use radii 26 px for cards and the confirm sheet, 34 px for the hero and 24 px fo
 ## Shared states and focus
 
 - **Rest:** show the glass fill, rim and rest elevation. The flat setting substitutes `--ui-flat-card` and hides decorative forms and grain.
-- **Focus:** draw a 2 px `--ui-accent` outline at 3 px offset. Add at least one non-colour change: the spike lifts a card 6 px, scales it to 1.028 and increases its shadow. The home row uses an accent rim, deeper shadow and `z-index: 3`; focus never changes tile size. Keep border width at 1 px.
-- **Selected:** use the accent rim, set `aria-pressed="true"`, and update the status line. The spike changes the subtitle to “Selected”; the home row keeps its meta line. Selection persists when focus moves.
+- **Focus:** draw a 2 px `--ui-accent` outline at 3 px offset (`--ui-dark-accent` on the dark surfaces). Add at least one non-colour change: the spike lifts a card 6 px, scales it to 1.028 and increases its shadow. On home, focus never changes tile size: the focused item goes to full opacity and gains a 3 px white underline, the same for every row. Home focus uses white rather than the accent because it reads better from a distance; the accent marks the active row label and live inputs.
+- **Selected:** use the accent rim, set `aria-pressed="true"`, and update the status line. The spike changes the subtitle to “Selected”; on home a selected tool stays at full opacity. Selection persists when focus moves.
 - **Disabled:** keep the component's geometry and label, remove it from remote focus and activation, and reduce its visual emphasis without relying on colour alone. The spike has no disabled example; do not infer a new palette colour from it.
 
 ## Hero card
@@ -58,36 +62,44 @@ Use the three-column grid's 16 vh row, 24 px gap, 30 px inner padding and 26 px 
 
 ## Home row
 
-Show the four home fixtures (Root status, Archive root, Debloat, Console) once, as a static row centered in `.shelf` with `justify-content: center`; there are no clones and no transform. Space the cards with a `2vw` right margin (flexbox `gap` is unsupported on the TV's Chromium 69), with 12 px vertical shelf padding and `6vw` horizontal padding (`8vw` on the left to offset the last card's margin). Each card uses `flex: 0 0 18vw`, `box-sizing: border-box` and an 18 vh height, with the same 26 px radius and existing inner padding. Each card holds its bottom-left label at 1.15 rem and one secondary meta line at .72 rem. Keep the controls and status line below the row.
+Home is a typographic index on a two-column grid inside a `7vw` margin. The top left holds the clock (5.5 rem, 300, line height .82 to trim the empty descender space) with the date centred under it; the `tiz0wn` eyebrow sits top right. The lower part is the index: one row per kind (Apps, Inputs, Tools, Settings), each with an uppercase label in a `9vw` column and its items as text, all at one size (`calc(.9rem + .55vw)`, about 25 px at 1080p, 300, 44 px line). There are no tiles, cards or pills, and no monograms: apps show their full name, preceded by the native icon only when it loads.
 
-Start on the first card. Left and Right move focus among the four cards and clamp at both ends; Up and Down move between the shelf and the controls. Focus uses `focus({preventScroll:true})`, with a guarded fallback for older engines. Focus uses the accent rim, deeper focus shadow, `z-index: 3` and the shared outline without changing tile size. Enter opens `tools.html#<id>` for the card.
+Hierarchy comes from brightness alone. Idle rows sit at 46 % opacity, the row holding focus at 72 % with its label in `--ui-dark-accent` (the document element carries `at-<zone>`), and the focused item at 100 % with a 3 px white underline. One caption line under the index, in the item column, shows the focused item's caption (a tool's description, an input's state); its captions are visually hidden in the row but still read out with the item.
+
+The tools are the four home fixtures (Root status, Archive root, Debloat, Console) once, as a static row in `.shelf`; there are no clones and no transform. Items space with a `1.75vw` right margin (flexbox `gap` is unsupported on the TV's Chromium 69) and rows wrap rather than overflow.
+
+Start on the first card, then on the first app once the list arrives. Left and Right move within a row and clamp at both ends; Up and Down move between rows. Focus uses `focus({preventScroll:true})`, with a guarded fallback for older engines. Enter on a tool opens `tools.html#<id>`.
 
 ## Background and launcher rows
 
-The home backdrop is `assets/eso1006a-1920.jpg` (Orion Nebula, ESO/J. Emerson/VISTA, CC BY 4.0; licence beside it), a 1920 px copy of the 4000 px original, under the theme photo scrim. The credit line stays visible at the bottom right. Glass cards, tiles and pills layer the fill gradient over `--ui-glass-base` so text keeps contrast over the bright core. The flat setting and the Source background hide the photo.
+The home backdrop is `assets/eso1006a-1920.jpg`, a 1920 px copy of the 4000 px original (Orion Nebula, ESO/J. Emerson/VISTA, CC BY 4.0). The credit is not shown on screen; it lives in `assets/eso1006a.license`, which ships in the package. Black gradients shade the bottom (the index), the left and the top (the clock); the sky between stays bright. All home type is white with a soft shadow. The flat setting replaces the photo with `--ui-dark-flat`; the Source background hides it; the band keeps its own scrim over the live source: `--ui-source-scrim-bottom` (.9) up to 30 % height, gone by 62 %, so every band text tone keeps 4.5:1 over a white frame (checked in `test_wgt.py`). The band fades in (opacity) on arrival, marks the main source's input "Now playing", shows Diagnostics only when that setting is On, and shows the photo only when there is no source (`.no-source`).
 
-Above the Tools row, the header shows the clock (display size) and date; then two rows adapted from arn0-tv: **Apps** (up to eight consumer apps from `tizen.application.getAppsInfo`, sorted by name; Enter launches) and **Inputs** (HDMI ports from `systeminfo` `VIDEOSOURCE`; Enter sets the source, then opens `org.tizen.tv-viewer`). Rows with no items stay hidden and are skipped by Up/Down. Tiles use the card rim, radius and focus rules; they space with a right margin, not flex `gap`. Focus starts on the first app once the list arrives, unless the viewer has already moved.
+The Apps row lists up to seven consumer apps from `tizen.application.getAppsInfo`, sorted by name, plus a final Samsung Home escape; Enter launches. The Inputs row lists HDMI ports from `systeminfo` `VIDEOSOURCE`; Enter sets the source, then opens `org.tizen.tv-viewer`. A connected port (`.live`) gets an accent dot after its name. Both rows are adapted from arn0-tv. In the band the app limit is six so both escapes fit. Rows with no items stay hidden, label included, and are skipped by Up/Down.
 
 ## Control pill
 
-Use a 48 px height, 24 px radius, 22 px horizontal padding, 18 px medium text, 1 px rim and `--ui-elevation-control` inset highlight plus `0 8px 24px` shadow. Apply the shared focus and disabled rules. A toggle exposes selected state with its visible On/Off label and `aria-pressed`; an action has no latched selection.
+Settings are the index's last row, set 3 vh apart at 1.15 rem because they are utility, not content; the name "pill" survives only as the class. They start folded into one item that summarises the current state (`Light  ·  Nebula  ·  Live TV off`, `aria-expanded="false"`). Enter opens them in place and focuses the first; Back folds them again before it would open the quit sheet. Each setting is its name as text with its value in `data-value`, drawn after the name at 55 % opacity: Theme (Light, Dark), Wallpaper (Nebula, Plain), Live TV (Off, On, Unavailable), Opens to (Home, Band), Diagnostics (Off, On), and two actions with no value: Probe (opens the old probe page at `/#probe`) and Quit.
+
+The app opens to this home on the **packaged** origin: once the service answers, the packaged `index.html` replaces itself with `home.html` (or `home.html#band` when Opens to is Band). Home must stay there: on the Q60T the loopback origin `http://127.0.0.1:18735` has no `tizen` object at all (no app list, inputs, `tvwindow`, launch or remote keys; seen 2026-11-07). Tools and the probe need the service, whose API accepts only the loopback Origin, so home opens them at `http://127.0.0.1:18735/tools.html#<id>` and `http://127.0.0.1:18735/`. Back returns to home. A toggle exposes its state with `aria-pressed`.
 
 ## Status line
 
-Put one 16 px secondary line below the row, with `aria-live="polite"`. Keep it on one line and truncate overflow. It reports selection or the frame sample; it is not focusable, selectable or a disabled target.
+Put one 16 px secondary white line below the caption line, in the item column, with `aria-live="polite"`. Keep it on one line and truncate overflow. It reports selection or the frame sample; it is not focusable, selectable or a disabled target. On the full home it stays empty until there is a message, because the caption line already describes the focus; in the band it reads "Choose an app or input."
 
 ## Confirm sheet
 
 Use the themed veil and a centred 480 px sheet, bounded by 6 vw margins, with 40 px padding and a 26 px radius. Layer the glass gradient over the flat card fill, retain the 1 px rim and inset highlight, and use the rest elevation. The title is 26 px medium. The action buttons use 18 px medium text, 12 px vertical / 30 px horizontal padding, a 14 px radius, and the shared focus outline. Rest, focus and disabled apply to actions; selection is the explicit confirmed action, not a latched visual state. Return focus to the invoking control on cancel.
 
+Home's quit sheet drops the card for the index's own language: the flat dark veil, the question "Quit tiz0wn?" at 3.2 rem / 300, and two text choices (Stay, Quit) with the index focus underline.
+
 ## Diagnostic line
 
-Use 11 px `--ui-meta` text in the spike's system monospace stack. Keep each entry to one line with overflow truncation; `aria-live="polite"` is optional. It is read-only and has no focus, selected or disabled interaction state.
+Use 11 px secondary white text in the spike's system monospace stack. Keep each entry to one line with overflow truncation; `aria-live="polite"` is optional. It is read-only and has no focus, selected or disabled interaction state. Because the band hides the controls, the line is shown automatically there; the trial event sits before the theme fields so truncation keeps it visible.
 
 ## Glass and motion
 
-Compose glass from a 150-degree three-stop `--ui-fill-top` → `--ui-fill-mid` (55%) → `--ui-fill-bottom` gradient, a 1 px soft rim (`--ui-rim-soft`) carrying a 1 px inset top highlight (`--ui-highlight`), and the themed shadow. The inset highlight rides on top of `--ui-elevation-rest` / `--ui-elevation-focus` for cards, and is already part of `--ui-elevation-control` for pills. Put grain on **one grid-level layer**, behind interaction and above cards: one repeating 64 × 64 tile at `--ui-grain-opacity: .035`, with `pointer-events: none`. Hide that layer in flat mode. Do not put a grain layer on each card.
+Home has no surfaces: its items are text on the shaded photo. The spike keeps the light glass fill below. Put grain on **one grid-level layer**, behind interaction and above cards: one repeating 64 × 64 tile at `--ui-grain-opacity: .035`, with `pointer-events: none`. Hide that layer in flat mode. Do not put a grain layer on each card.
 
-Animate transform and opacity only. Use `--ui-motion-focus: 200ms` and `--ui-motion-easing: cubic-bezier(.22,.61,.36,1)` for focus; no bounce. Controls and dialog buttons lift `translateY(-.375rem) scale(1.035)`. Home row tiles never transform, so their focus and selection read through the accent rim, inset highlight and deeper shadow only. The 240 ms token is a reserved scale slot from the brief: the approved spike has no 240 ms transition. Keep motion optional and never require it to recognize focus or selection.
+Animate transform and opacity only. Use `--ui-motion-focus: 200ms` and `--ui-motion-easing: cubic-bezier(.22,.61,.36,1)` for focus; no bounce. Controls and dialog buttons lift `translateY(-.375rem) scale(1.035)`. Home and tools items never transform, and their brightness steps and underline change instantly: the Q60T flickered the photo on row moves until per-item opacity transitions were removed and the active-row class moved from `<html>` to `#index` (which change mattered was not isolated); keep both. Home and tools never scroll the document (on tools, `main` scrolls), for the same reason. The only fade is the band's arrival. The 240 ms token is a reserved scale slot from the brief: the approved spike has no 240 ms transition. Keep motion optional and never require it to recognize focus or selection.
 
-Do not use CSS `filter` or `backdrop-filter`, a second accent, a new font or icon font, a weight above 500, or full-bleed colour blocks. Keep the background forms behind the grid and keep text contrast on the composed surface.
+Do not use CSS `filter` or `backdrop-filter`, a second accent, a font other than the bundled Inter, an icon font, a weight above 500, or full-bleed colour blocks. Keep the background forms behind the grid and keep text contrast on the composed surface.
