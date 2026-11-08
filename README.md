@@ -198,7 +198,10 @@ Coverage so far, one verified build per row: offsets are per-image and never
 transfer, but the 776-byte carrier is byte-identical on every set, which is
 what makes the comparison meaningful. These rows are the working state of
 issue #1's *Q-Series Coverage & Affected-Version Matrix* milestone: confirmed
-roots per exact build, not a claimed affected range.
+roots per exact build, not a claimed affected range. The last two rows are not Q
+series: owners of a TU8500 and a TU7000 reported the same Remote PC/CIFS route
+on their own sets. The TU7000 report does not say whether its profile script is
+the same 776-byte carrier.
 
 | Set (model, build) | Route to root | Persistence offset | Verified on the set |
 |---|---|---|---|
@@ -206,6 +209,8 @@ roots per exact build, not a claimed affected range.
 | Q90T `QE75Q90TATXXU`, `T-NKMDEUC-REL-202607031800` | USB image (Luminger), after two bounded CIFS UID-0 proofs | p18 byte `752541696` (512-block `1469808`) | USB-free boots via boot IDs; set planned back to stock |
 | Q70T `QN65Q70TAFXZA`, `T-NKMAKUC-2743.0` | exFAT USB kernel LPE after the SDB foothold | p19 byte `1612972032` (512-block `3150336`) | two power cycles; dropbear root SSH |
 | Q74T `QE55Q74TATXZT`, `T-NKMDEUC-2743.0` (Tizen 5.5) | Remote PC/CIFS, via the [vetro remote-pc prototype](https://github.com/andrearicci93/vetro) | derived from its own image | persistence and the agent's loopback channel after the two fixes below |
+| TU8500 `UA50TU8500SXNZ`, `T-NKLUABC-2743.0` (NikeL, Tizen 5.5) | Remote PC/CIFS credential sink ([#1](https://github.com/sebastianspicker/tiz0wn/issues/1)) | derived from its own image with `carrier.py locate`: same carrier bytes as the Q60T, different offset | a cold boot with the lab host off |
+| TU7000 `UE43TU7000KXXU`, `T-KTSU2DEUC-2743.0` (KantSu2, Tizen 5.5) | Remote PC/CIFS, locally adapted ([#3](https://github.com/sebastianspicker/tiz0wn/issues/3)) | profile-script patch from its own image, vendor bytes checked before the write | three unplugged cold boots, UEP left armed |
 
 Read together, the three cover each other's gaps. The USB routes work on a set
 with no network path and no Developer Mode. This route works with no stick, no
