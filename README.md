@@ -12,8 +12,11 @@ _Claude was used to polish and proof-read the code and documentation of this rep
   each target trialled over a reboot and reverted.
 - **2026-11-07** — a new TV menu for the app: a typographic home and tools page,
   verified on the set. It lists the installed apps and HDMI inputs and runs over
-  the live HDMI picture. Pointing the Home key at it is blocked on this
-  firmware; see [the Home-key plan](docs/home-key-menu-plan.md).
+  the live HDMI picture.
+- **2026-11-08** — the remote's Home key opens the app's band over the live
+  picture, through `tvctx-manager`'s rule database, reversibly. Closing it again
+  the way Samsung's band closes is not solved yet; see
+  [Replacing Samsung's Home band](#replacing-samsungs-home-band).
 
 Operating detail: `docs/current-state-2026-11-04.md`.
 
@@ -42,11 +45,57 @@ What was verified on the Q60T (2026-11-07):
 - **Smooth on Chromium 69.** Moving between rows had made the background photo
   flicker. Two changes fixed it: no per-item opacity transitions, and the
   active-row class set on the index instead of `<html>`.
-- **Home key: not remapped.** Both pieces of the Tizen 6.5 method are missing on
-  Tizen 5.5: the `db/appfw/home_appid` key, and `aul_get_default_app` in
-  `libaul.so.0`. The safety chain refused to save a baseline, so nothing on the
-  TV's Home routing changed. Details and the offline-tested guard and trial
-  tooling are in [`docs/home-key-menu-plan.md`](docs/home-key-menu-plan.md).
+- **Home key: works one way, in development.** See the next section.
+
+## Replacing Samsung's Home band
+
+Goal: pressing Home shows tiz0wn's band over the playing picture instead of
+Samsung's band (`com.samsung.tv.csfs`), and pressing Home again closes it. Status
+on 2026-11-08: **half done**. Every trial was reversed, and the TV runs Samsung's
+Home today.
+
+**How Home is routed on Tizen 5.5.** The Tizen 6.5 method (`db/appfw/home_appid`,
+`aul_get_default_app`) does not exist here. Instead, `csfs`'s manifest declares a
+rule "`XF86Home` → launch `csfs`". At install time it is copied into
+`/opt/dbspace/.app-context.db`, which is writable by root. `tvctx-manager`
+applies those rules and reloads them live when `memory/appfw/app_context_db_change`
+changes. `exploits/tiz0wn-root/live/home-ctx.sh` makes two edits in one
+transaction, with a backup and an exact restore:
+- the Home row's target becomes `package:tiz0wnprob.Main`;
+- tiz0wn gets its own `managed_app` row, because `tvctx-manager` only launches
+  managed apps.
+
+| Works | Not yet |
+|---|---|
+| Home launches tiz0wn: `tvctx-manager` starts it from the edited rule, no reboot needed | A **second Home press does not close** the band |
+| The launch carries `entry_point=smarthub_key`, and the app opens its band, not its full home | **Back from the band ends in Samsung's band**, not on the plain picture |
+| The HDMI picture keeps playing behind the band (`ui_type 'partial'`, like `csfs`) | After a second press, the remote's keys go to `tv-viewer` while the band is still drawn |
+| Opened from the app list, tiz0wn still opens its full home | Home pressed while tools or the probe page are open does not switch to the band |
+| `restore` puts Samsung's row back, and Home opens Samsung's band again at once | The edit survives a reboot, and no boot guard restores this database yet |
+
+**Why the rest does not work yet:**
+- **Closing.** Samsung's band closes on a second press because `csfs` holds the
+  Home key while it is visible. A web app cannot. On a second press,
+  `tvctx-manager` brings `tv-viewer` forward and relaunches tiz0wn, and the page
+  receives no event at all (`appcontrol` never fires on this firmware). So the
+  close has to come from the rules, not from the app.
+- **Back.** Each Home launch places our window directly below `csfs`
+  (`__K_RELOCATE_BELOW=com.samsung.tv.csfs`), because the rule still belongs to
+  `csfs`. When the band hides, `tvctx-manager` brings `csfs` forward.
+
+**In development:**
+- a second, conditional Home rule that pauses tiz0wn while it is visible;
+- a Home rule owned by tiz0wn instead of `csfs`, so its launch is not placed
+  under `csfs`;
+- then a boot guard for the database and a permanent apply.
+
+Findings, logs and the trial table are in
+[`docs/home-key-menu-plan.md`](docs/home-key-menu-plan.md#findings-on-the-tv-2026-11-08-the-app-context-route).
+The tools need `TV_HOST`:
+- `live/home-probe.sh` reads only, except one log file in the TV's `/tmp`;
+- `live/home-ctx.sh` runs `check`, `status`, `apply` and `restore`.
+
+Both are covered by `tests/test_home_ctx.py`.
 
 <details>
 <summary>Status and limitations</summary>
@@ -306,7 +355,9 @@ TV-control port to the Internet.
 | [`docs/app-route-report.md`](docs/app-route-report.md) | Batch report: app route, UEP map, primitive audit and debloat adoption |
 | [`docs/app-persistence-design.md`](docs/app-persistence-design.md) | Prebuilt archive and agent-controlled boot-start design |
 | [`docs/ui-system.md`](docs/ui-system.md) | The TV menu's design contract: tokens, typography, focus, band |
-| [`docs/home-key-menu-plan.md`](docs/home-key-menu-plan.md) | The Home-key menu plan, its TV findings and why the remap is blocked |
+| [`docs/home-key-menu-plan.md`](docs/home-key-menu-plan.md) | The Home-key menu plan, the 5.5 rule-database route, trials and what is still open |
+| [`exploits/tiz0wn-root/live/home-ctx.sh`](exploits/tiz0wn-root/live/home-ctx.sh) | Points Home at tiz0wn and restores Samsung's Home (`check`, `status`, `apply`, `restore`) |
+| [`exploits/tiz0wn-root/live/home-probe.sh`](exploits/tiz0wn-root/live/home-probe.sh) | Read-only probes of the Home routing, plus a 25 s log recorder |
 | [`docs/screenshots/home-menu-2026-11-07/`](docs/screenshots/home-menu-2026-11-07/) | Rendered screenshots of the menu at 1080p and 720p |
 | [`docs/DISCLOSURE.md`](docs/DISCLOSURE.md) | The vulnerability report, timeline and fix guidance |
 | [`docs/uep-q60t.md`](docs/uep-q60t.md) | The guarded UEP state word, addresses and live-check sequence |
@@ -325,8 +376,9 @@ TV-control port to the Internet.
   sources, apps, settings, now-playing, OSD) with a minimalist, high-craft
   surface in a 2026 Apple TV idiom, including boot and HOME takeover. The app's
   home and tools pages are done and verified (see [TV menu](#tv-menu)). HOME
-  takeover is blocked on Tizen 5.5 until the set's own `XF86Home` routing is
-  measured; see `docs/home-key-menu-plan.md`.
+  takeover is half done: Home opens the band, but closing it and Back do not
+  behave like Samsung's yet; see
+  [Replacing Samsung's Home band](#replacing-samsungs-home-band).
   Constraints, hard problems, phases and acceptance:
   `docs/milestone-liquid-glass-ui.md`. Reference for interaction ideas only:
   `wingedpanther/cleanmytv`.

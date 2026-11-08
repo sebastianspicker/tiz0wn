@@ -1,7 +1,12 @@
 # Plan: the Home-key menu in the typographic design, over the live picture
 
-Status: **stage 0 passed; stage 3 (the Home remap) is blocked on this firmware, 2026-11-07.** The menu itself works on the TV when launched as the app; the Home key still opens Samsung's `csfs`. Nothing on the TV's Home routing was changed. (the TV
-runbook is below). No TV command has been run for it yet. It builds on
+Status, **2026-11-08: the Home key can open tiz0wn's band; the remap is reversible and
+was restored after every trial.** The Tizen 6.5 method (stage 3 below) does not exist on
+5.5, but 5.5 routes Home through `tvctx-manager`'s rule database, and two row edits point
+it at our app (see [Findings 2026-11-08](#findings-on-the-tv-2026-11-08-the-app-context-route)).
+A first press opens the band over the live picture. Not solved yet: a second press does not
+close the band, and Back after the band lands in Samsung's band. The TV is back on Samsung's
+Home; nothing stays applied. It builds on
 [the Home-band assessment](home-band-assessment.md) (routes A–C, `homestate`,
 `HomeOperation.dll`), [the launcher feasibility](launcher-feasibility.md) and
 [the UI system](ui-system.md) (the typographic index now used by `home.html`).
@@ -137,6 +142,82 @@ a second. Back returns to the picture. Samsung Home is reachable in one move.
 A menu crash, a reboot or a firmware update always leaves Home working,
 whether through our menu or through Samsung's.
 
+## Findings on the TV (2026-11-08): the app-context route
+
+Measured on the owned Q60T with the read-only phases of `live/home-probe.sh`, then
+trialled with `live/home-ctx.sh` (both public, `TV_HOST` required). Every trial was
+restored over `/cmd`, and Samsung's band was confirmed back each time.
+
+**How Tizen 5.5 routes Home.** The block found on 2026-11-07 was the method, not a
+missing driver: 5.5 has its own default-app calls (`aul_svc_set_defapp`,
+`app_control_set_defapp`; only the 6.x getter `aul_get_default_app` is absent), but Home
+does not use them. The route is:
+
+1. `csfs`'s manifest (`/usr/share/packages/com.samsung.tv.csfs.xml`, read-only) declares an
+   `app-context` rule: `XF86Home` → launch `com.samsung.tv.csfs` with
+   `entry_point:smarthub_key`. `XF86Display` → `csfs` with `entry_point:source_key`.
+2. At install, the package-manager plugin `/etc/package-manager/parserlib/libapp-context.so`
+   writes those rules into **`/opt/dbspace/.app-context.db`** (writable, `root:root`,
+   label `_`): tables `key_filter` (74 rows), `managed_app` (27), `task_filter` (0).
+3. **`tvctx-manager`** (`/usr/bin/tvctx-manager`, with `/etc/tvctx-manager/appctx-config.json`)
+   receives the key from the window manager's key router and applies the rules. It
+   **reloads them live** when `memory/appfw/app_context_db_change` changes; no reboot is needed.
+   The `/etc` JSON has no `XF86Home` rule of its own.
+
+Samsung's Home row: `key_filter(appid=com.samsung.tv.csfs, key=XF86Home, request=launch,
+target_selector=package:com.samsung.tv.csfs, args=entry_point:smarthub_key)`. A second
+`XF86Home` row (`org.tizen.remote-management`, `longpress 5300`) was left alone.
+
+**Trials** (each: back up the db once, edit, bump the reload key, press Home, restore):
+
+| Trial | Edit | Result |
+|---|---|---|
+| 1 | Home row target → `package:tiz0wnprob.Main` | Home did nothing. `tvctx-manager` got the key but started no task: it launches only **managed apps** |
+| 2 | + `managed_app` row for `tiz0wnprob.Main`, copied from `searchall` (full-screen) | Home launched tiz0wn (`[REQUEST START][com.samsung.tv.csfs.xml] tiz0wnprob.Main:launch`); the app opened its full home; `tv-viewer` paused |
+| 3 | `managed_app` row copied from `csfs` (`ui_type 'partial'`), plus the app change below | **Home opens the band over the live HDMI picture** on a fresh launch |
+
+**The app side** (`index.html`, `home.html`): a Home launch carries
+`operation/default` with `entry_point=smarthub_key`, `__TVCONTEXT_PREV_APP__`,
+`__K_RELOCATE_BELOW=com.samsung.tv.csfs`. `index.html` now opens `home.html#band` for it,
+whatever "Opens to" says. Opened from the app list, the app still opens its full home.
+
+**What does not work yet, and why:**
+
+- **A second Home press does not close the band.** `tvctx-manager` answers it with
+  `[context-mgr] tv-viewer:launch` and relaunches tiz0wn (`resetted`). The page gets **no
+  event**: no `appcontrol` on `window` or `document`, no visibility change, so the app cannot
+  toggle. Samsung's band closes on a second press because `csfs` holds the Home key while it
+  is visible (`registered (5)`, "ignore Key input - Key already registered"); a web app
+  cannot hold Home. The fix has to live in the rules, e.g. a second `XF86Home` row whose
+  `on_selector` matches tiz0wn visible and whose request pauses it. Selector names for a
+  db-managed app (the task is logged as `tiz0wnprob.Main`) are unverified.
+- **After a second press, keys go to `tv-viewer`.** The band stays drawn, but the next Back
+  arrives at `tvctx-manager` as `XF86Back (0x2)` for `tv-viewer`, and 75 ms later `csfs`
+  comes to the front.
+- **Back from the band lands in Samsung's band.** Our launch is placed directly below `csfs`
+  (`__K_RELOCATE_BELOW=com.samsung.tv.csfs`, added because the Home row still belongs to
+  `csfs`'s rule set). When the app hides itself, `tvctx-manager` reports `running
+  firstscreen:com.samsung.tv.csfs`, pauses tiz0wn and brings `tv-viewer` forward with
+  `csfs` shown. Candidates, untested: a Home row owned by our app id rather than `csfs`, or
+  handing the screen to `tv-viewer` instead of `hide()`.
+- **Relaunch while on tools or the probe page** stays on that page: they run on the loopback
+  origin, which has no `tizen` API to read the launch data.
+
+**Operational notes:**
+
+- Reinstalling the app can remove its `managed_app` row: restore before an install, apply
+  after it.
+- `/cmd` sends each command through SDB in 160-character pieces; any command can miss the 60 s
+  deadline when that transport stalls, even an `ls`. A command that ran long (a recursive
+  `grep` over `/etc` and `/usr/share`) twice left `sdbd` resetting every connection
+  (`SDB ECONNRESET before capability`) for a while. Keep commands short.
+- The log ring holds only ~15 s: `csfs` logs every second. Record with `home-probe.sh live`
+  while pressing keys, then read it with `find` or `seq`.
+- On the Mac, Python's requests to the TV failed with `No route to host` from a terminal
+  without macOS Local Network permission, while `curl` worked. `home-ctx.sh` and
+  `home-probe.sh` use `curl` for that reason; `home-trial.sh install` (Python) was run from
+  Terminal.app.
+
 ## Findings on the TV (2026-11-07)
 
 - **The loopback origin has no `tizen` object.** Live TV reported "no tizen object on http://127.0.0.1:18735". The home page had always run there, so on the TV it could never list apps or inputs, show the source (`tvwindow`), launch apps or register keys. Home now stays on the packaged origin (`widget://tiz0wnprob`); only tools and the probe, which need the service's loopback-only API, open on `http://127.0.0.1:18735`. The picture check (stage 0, step 1) therefore only becomes meaningful from this build on.
@@ -177,9 +258,25 @@ whether through our menu or through Samsung's.
   - `trial` restores on Enter, Ctrl-C, a lost terminal, or after 15 minutes;
   - `test_home_trial.py` covers those paths and the refusal to apply when Home is not at its baseline.
 
-## TV runbook
+## TV runbook (2026-11-08, the app-context route)
 
-Run from the Mac with `TV_HOST` and `HOST_IP` set, as for `app-run.sh`.
+Run from the Mac with `TV_HOST` set. The app must be running so `/cmd` answers.
+
+1. `sh live/home-ctx.sh check` is read-only: the `/etc` JSON must show no `XF86Home` rule,
+   and the Home row must be Samsung's.
+2. If the app changed: `sh live/home-ctx.sh restore` first, then
+   `TIZ0WN_BRIDGE_TOKEN_FILE=… sh live/home-trial.sh install` (from a terminal whose Python
+   may reach the LAN), then open tiz0wn once and set Settings → Opens to → Home.
+3. `sh live/home-ctx.sh apply`: one backup in `/opt/usr/share/tvroot/appctx-backup/`, then
+   both rows in one transaction, then the reload. It refuses unless Home is at Samsung's row.
+4. `sh live/home-probe.sh live`, press Home and Back within 25 s, then `… find` or `… seq`.
+5. `sh live/home-ctx.sh restore`, always, and before the TV is switched off. Check that
+   Home opens Samsung's band again.
+
+## TV runbook (2026-11-07, `homestate`; superseded on Tizen 5.5)
+
+Kept for Tizen 6.x sets, where `db/appfw/home_appid` exists. Run from the Mac with
+`TV_HOST` and `HOST_IP` set, as for `app-run.sh`.
 
 1. `AUTHOR_PASSWORD=… live/app-run.sh install` installs this version and re-arms the boot flags.
 2. `live/home-trial.sh check` is read-only. Then do the picture check it prints. If there is no picture, stop.

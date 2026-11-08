@@ -6,6 +6,14 @@ Assessment and trial scaffolding for the owned Q60T (`GQ55Q60TGUXZG`,
 [launcher feasibility](launcher-feasibility.md), the
 [web UI feasibility](ui-spike-feasibility.md) and arn0-tv's Home-button guide.
 
+> **Update 2026-11-08.** On this set (Tizen 5.5), route A does not go through
+> `homestate` and `HomeOperation.dll`: the keys and the native call they use do not
+> exist here. It goes through `tvctx-manager`'s rule database instead
+> (`/opt/dbspace/.app-context.db`, tool `live/home-ctx.sh`). Home now opens the band.
+> Closing it and Back are still open. See
+> [the Home-key plan](home-key-menu-plan.md#findings-on-the-tv-2026-11-08-the-app-context-route).
+> `homestate` stays for Tizen 6.x sets.
+
 ## Verdict
 
 We can make the Home button open our glass surface with the live picture

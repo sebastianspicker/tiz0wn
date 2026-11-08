@@ -1,0 +1,4 @@
+---
+# Test code, fixtures and assertion scripts: not shipped to the TV.
+exclude_paths:
+  - "**/tests/**"
