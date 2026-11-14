@@ -8,17 +8,22 @@ _Claude was used to polish and proof-read the code and documentation of this rep
 
 - **2026-11-04** — app route: root from the installed app, boot persistence,
   token relay.
-- **2026-11-05** — reversible debloating across the package and unit classes,
-  each target trialled over a reboot and reverted.
-- **2026-11-07** — a new TV menu for the app: a typographic home and tools page,
-  verified on the set. It lists the installed apps and HDMI inputs and runs over
-  the live HDMI picture.
+- **2026-11-05** — debloat: the reversible ladder across the package and unit
+  classes was trialled and reverted; then 33 `wgt` packages were removed and 41
+  `tpk`/`rpm` packages disabled (53 app rows), verified over two reboots.
+- **2026-11-07** — typographic home and tools page, verified on the set; it
+  lists the installed apps and HDMI inputs and runs over the live picture.
 - **2026-11-08** — the remote's Home key opens the app's band over the live
-  picture, through `tvctx-manager`'s rule database, reversibly. Closing it again
-  the way Samsung's band closes is not solved yet; see
+  picture, through `tvctx-manager`'s rule database, reversibly. Closing it and
+  Back are not solved yet; see
   [Replacing Samsung's Home band](#replacing-samsungs-home-band).
+- **2026-11-14** — the coverage matrix gained a seventh build, TU8079
+  `GU55TU8079UXZG` ([#5](https://github.com/sebastianspicker/tiz0wn/issues/5)),
+  and the applied debloat state was reconciled below.
 
-Operating detail: `docs/current-state-2026-11-04.md`.
+Operating detail: [`docs/current-state-2026-11-04.md`](docs/current-state-2026-11-04.md)
+for root, app route and access paths; the applied debloat state is in
+[`docs/HANDOFF-2026-11-05.md`](docs/HANDOFF-2026-11-05.md).
 
 ## TV menu
 
@@ -45,14 +50,13 @@ What was verified on the Q60T (2026-11-07):
 - **Smooth on Chromium 69.** Moving between rows had made the background photo
   flicker. Two changes fixed it: no per-item opacity transitions, and the
   active-row class set on the index instead of `<html>`.
-- **Home key: works one way, in development.** See the next section.
 
 ## Replacing Samsung's Home band
 
 Goal: pressing Home shows tiz0wn's band over the playing picture instead of
-Samsung's band (`com.samsung.tv.csfs`), and pressing Home again closes it. Status
-on 2026-11-08: **half done**. Every trial was reversed, and the TV runs Samsung's
-Home today.
+Samsung's band (`com.samsung.tv.csfs`), and pressing Home again closes it.
+Status: **half done** (2026-11-08); every trial was reversed, and the TV runs
+Samsung's Home today.
 
 **How Home is routed on Tizen 5.5.** The Tizen 6.5 method (`db/appfw/home_appid`,
 `aul_get_default_app`) does not exist here. Instead, `csfs`'s manifest declares a
@@ -115,10 +119,6 @@ Both are covered by `tests/test_home_ctx.py`.
 
 </details>
 
-Scope: one device and one exact build. Everything below was measured on that
-unit, including the offsets. Sibling models are discussed where the work
-overlaps, and their values are theirs, not portable here.
-
 The project began as reversible debloating. Firmware analysis then exposed a
 shorter path: Remote PC writes user-controlled SMB credentials, the privileged
 CIFS helper substitutes them into a shell command, and the shipped script
@@ -140,20 +140,19 @@ The measured password-field characters and limits are in the
 
 Read [the report](docs/DISCLOSURE.md) for the source trace and the reproduction
 notes.
+
 ## Current results
 
 | Area | Result |
 |---|---|
-| Reversible debloating | Inventory and one-change-at-a-time tooling; no bulk uninstall list |
 | Firmware analysis | The exact 2743.0 image decrypted and statically examined; no firmware redistributed |
-| Remote PC/CIFS | Command injection through the password field, executed as UID 0 |
-| One-shot exploit | Complete and live. One trigger writes a same-size block patch in the read-only rootfs, verifies it by re-read, backs up the vendor bytes and installs a root agent |
+| Remote PC/CIFS | Command injection through the password field, executed as UID 0. One trigger writes a same-size block patch in the read-only rootfs, re-reads and verifies it, backs up the vendor bytes and installs the root agent |
 | Persistence | Proven over three full power cycles; the hook fires once per boot as `uid=0` and restores the agent |
 | `sdk` as root login | Done. `sdk` resolves to `uid 0` with `/root` and `/bin/bash` and a password, surviving power cycles, with no mode loosened |
 | Root capability | Root over the whole filesystem, block devices, `/proc` and sysctl, but no unsigned binary executes (see below) |
 | App route | **Live root and boot persistence**: `/root` returns `rc=0`, `amd` starts the service from the per-user `app_onboot` row at every boot, and `POST /cmd` runs bounded root commands |
 | UEP disable | The kernel state word is mapped offline; the physical primitive and write are unproven |
-| Debloat adoption | 29 packages classified, reversible `pkgcmd`, quick settings, kill-switch map and hosts filter prepared |
+| Debloat adoption | 33 `wgt` removed (store reinstall is the only route back) and 41 `tpk`/`rpm` disabled (53 app rows), verified over two reboots; `pkgstate enable` reverses; quick-settings and hosts-filter maps prepared |
 
 The chain needs one trigger, no USB stick, no kernel exploit, no kernel module
 and no UEP patch. The full procedure, measurements and limits are in
@@ -169,21 +168,14 @@ runs and every step is a script invoked by content via `sh -c "$(cat …)"`.
 Dropbear, custom tooling as processes and kernel modules are therefore
 unavailable even as root.
 
-`make -C exploits/tiz0wn-root check` lints the shell and Python and runs the
-loopback rehearsal, without contacting the TV. The ledger and handoff notes are
-local-only and untracked; the synthetic tests and security controls are public,
-so a clone can run them.
-
 ## Three routes, one community effort
 
 Three people reached root on this TV generation within weeks of each other, on
 three models, and published what they learned. Nobody started from nothing:
 each route borrows a piece the others proved. The routes are complementary
 rather than competing: each solves a different problem and each has a weak half
-the others do not. Since publication a fourth set joined the effort: on a
-Q74T the same CIFS path reached a persistent root agent, and its owner
-supplied the two platform gotchas below that matter for anyone building on
-this family.
+the others do not. Later reports extended the Remote PC/CIFS route to further
+sets; the coverage matrix below is per exact build.
 
 | | [metaljay](https://github.com/metaljay) (Q90T) | [cfloinc](https://github.com/cfloinc/samsung-q70t-tizen-root) (Q70T) | this repo (`GQ55Q60TGUXZG`) |
 |---|---|---|---|
@@ -195,13 +187,16 @@ this family.
 | UEP | derived the gates but shipped content-form per hop, since a verifier-entry patch boot-looped | chose the signed-`/bin/bash` variant rather than patch UEP; content-form for the hook | never touched; content-form throughout |
 
 Coverage so far, one verified build per row: offsets are per-image and never
-transfer, but the 776-byte carrier is byte-identical on every set, which is
-what makes the comparison meaningful. These rows are the working state of
-issue #1's *Q-Series Coverage & Affected-Version Matrix* milestone: confirmed
-roots per exact build, not a claimed affected range. The last two rows are not Q
-series: owners of a TU8500 and a TU7000 reported the same Remote PC/CIFS route
-on their own sets. The TU7000 report does not say whether its profile script is
-the same 776-byte carrier.
+transfer, but the 776-byte carrier is byte-identical wherever it has been
+checked, which is what makes the comparison meaningful. These rows are the
+working state of issue #1's *Q-Series Coverage & Affected-Version Matrix*
+milestone: confirmed roots per exact build, not a claimed affected range. The
+last three rows are not Q series: owners of a TU8500, a TU7000 and a TU8079
+reported the same Remote PC/CIFS route on their own sets. The TU7000 report does
+not say whether its profile script is the same 776-byte carrier; the TU8079
+report identifies it. The TU8079 operator is the reporter's local signed-command
+channel, not this repo's chain, and its live rollback and OTA behaviour are
+untested.
 
 | Set (model, build) | Route to root | Persistence offset | Verified on the set |
 |---|---|---|---|
@@ -211,13 +206,23 @@ the same 776-byte carrier.
 | Q74T `QE55Q74TATXZT`, `T-NKMDEUC-2743.0` (Tizen 5.5) | Remote PC/CIFS, via the [vetro remote-pc prototype](https://github.com/andrearicci93/vetro) | derived from its own image | persistence and the agent's loopback channel after the two fixes below |
 | TU8500 `UA50TU8500SXNZ`, `T-NKLUABC-2743.0` (NikeL, Tizen 5.5) | Remote PC/CIFS credential sink ([#1](https://github.com/sebastianspicker/tiz0wn/issues/1)) | derived from its own image with `carrier.py locate`: same carrier bytes as the Q60T, different offset | a cold boot with the lab host off |
 | TU7000 `UE43TU7000KXXU`, `T-KTSU2DEUC-2743.0` (KantSu2, Tizen 5.5) | Remote PC/CIFS, locally adapted ([#3](https://github.com/sebastianspicker/tiz0wn/issues/3)) | profile-script patch from its own image, vendor bytes checked before the write | three unplugged cold boots, UEP left armed |
+| TU8079 `GU55TU8079UXZG`, `T-NKLDEUC-2743.0` (NikeL, Tizen 5.5) | Remote PC/CIFS credential sink, locally adapted ([#5](https://github.com/sebastianspicker/tiz0wn/issues/5)) | derived and hash-validated from its own live image; same 776-byte carrier; offset withheld | at least two cold/reboot checks with changed boot IDs and fresh signed UID-0 commands; UEP left enabled; no root-login change |
 
-Read together, the three cover each other's gaps. The USB routes work on a set
-with no network path and no Developer Mode. This route works with no stick, no
-kernel primitive and no image, but needs the Remote PC feature reachable. The
-kernel work documents the UEP gates and how to disable them, which this route
-avoids needing. None of the three is a superset, and a reader landing on any of
-them should know the others exist.
+Build identifiers above are the strings the reports used. The firmer identifier
+is the `REL`/build stamp where recorded: Q60T `T-NKLDEUC-REL-202607022001`, Q90T
+`T-NKMDEUC-REL-202607031800`, TU8079
+`TIZEN-TRUNK2020-NikeL-HOTFIX-RELEASE_20260702.1`. New exact-build reports are
+welcome through the
+[compatibility report form](https://github.com/sebastianspicker/tiz0wn/issues/new?template=compatibility-report.yml).
+Further exact-build reports came from [Greminn](https://github.com/Greminn)
+(TU8500), [Curtisg890](https://github.com/Curtisg890) (TU7000) and
+[osmosBe](https://github.com/osmosBe) (TU8079); each row links its report.
+
+The USB routes work on a set with no network path and no Developer Mode. This
+route works with no stick, no kernel primitive and no image, but needs the
+Remote PC feature reachable. The kernel work documents the UEP gates and how to
+disable them, which this route avoids needing. None of the three is a superset,
+and a reader landing on any of them should know the others exist.
 
 One difference the Reach row hides: the entry is not the whole surface. cfloinc's
 chain ends by firing the kernel stage from a loop device at ~60 s, so UEP is down
@@ -236,17 +241,15 @@ derivation instead of restating it.
 The sharpest shared finding is that root alone is not enough, because of UEP.
 cfloinc and metaljay each hit it on their own set — the file-loading no-op and
 the verifier/global boot loop are better read in their own words than retold
-here. This repo measured the consequence directly as `uid=0`: an unsigned ELF on
-tmpfs returns `EPERM` and `the file is NOT signed!!`, and a byte-identical copy
-of a signed binary is refused as well, which is the evidence for the inode
-binding. UEP is independent of privilege, so being root does not let you run a
-single unsigned binary. No dropbear, no custom tooling as a process, no kernel
-modules.
+here. This repo measured the consequence directly as `uid=0`; the evidence is in
+[Current results](#current-results). UEP is independent of privilege, so no
+dropbear, custom tooling as a process or kernel module is available even as
+root.
 
 The inode model, and the split between the kernel handler (`execve`,
 `PROT_EXEC`) and the user-space shell gate for script paths, are txtsamu's T6500
-correction. cfloinc flags them as such and marks his own Q70T controls for the
-shell layer as still queued, so the two are kept apart here as well.
+correction. cfloinc keeps them separate from his own Q70T result, and so does
+this repo.
 
 Two further platform traps were found by tenda96 on the Q74T rather than here:
 the content rule also applies one level deeper (a helper started by path from a
@@ -331,7 +334,9 @@ until he offers his own text.
 ## Running it
 
 `make -C exploits/tiz0wn-root check` lints the shell and Python and runs the
-loopback rehearsal on a block file. Nothing contacts the TV.
+loopback rehearsal on a block file. Nothing contacts the TV. The ledger and
+handoff notes stay local and untracked; the synthetic tests and security
+controls are public, so a clone can run them.
 
 A run follows `plan` → `build-run` → `check` offline, then `serve` on a specific
 private IPv4 address and a port from 1 to 65535. The account is off by default;
@@ -373,6 +378,7 @@ TV-control port to the Internet.
 | [`docs/trigger-grammar.md`](docs/trigger-grammar.md) | The measured password-field character classes, proven and rejected |
 | [`docs/privileged-services.md`](docs/privileged-services.md) | The privileged-service inventory: shell-argv versus argv-direct sinks |
 | [`docs/testing.md`](docs/testing.md) | What the public suites cover, what stays local |
+| [`.github/ISSUE_TEMPLATE/compatibility-report.yml`](.github/ISSUE_TEMPLATE/compatibility-report.yml) | The compatibility-report form: exact build, route, carrier, cold boots, UEP and limits |
 | [`SECURITY.md`](SECURITY.md) | Reporting, what is public, how to run it safely |
 
 ## Roadmap
@@ -380,13 +386,10 @@ TV-control port to the Internet.
 - **Liquid-glass TV UI** — future milestone: replace the whole TV UI (home,
   sources, apps, settings, now-playing, OSD) with a minimalist, high-craft
   surface in a 2026 Apple TV idiom, including boot and HOME takeover. The app's
-  home and tools pages are done and verified (see [TV menu](#tv-menu)). HOME
-  takeover is half done: Home opens the band, but closing it and Back do not
-  behave like Samsung's yet; see
-  [Replacing Samsung's Home band](#replacing-samsungs-home-band).
-  Constraints, hard problems, phases and acceptance:
-  `docs/milestone-liquid-glass-ui.md`. Reference for interaction ideas only:
-  `wingedpanther/cleanmytv`.
+  home and tools pages are done ([TV menu](#tv-menu)); Home takeover is half done
+  ([Replacing Samsung's Home band](#replacing-samsungs-home-band)). Constraints,
+  hard problems, phases and acceptance: `docs/milestone-liquid-glass-ui.md`.
+  Reference for interaction ideas only: `wingedpanther/cleanmytv`.
 - Bridge supervision and a `/cmd`-based maintenance path, so routine work never
   needs an `sdb` session.
 - Re-apply checklist and cold-boot drill after an OTA.
@@ -402,8 +405,8 @@ TV-control port to the Internet.
   before it is needed.
 - The app route is a self-signed development package. A self-signed author
   certificate is not a store certificate and does not establish boot startup.
-- UEP and app-route root are volatile; a reboot clears them. Keep the CIFS route
-  as recovery.
+- UEP is not patched; app-route root is re-established at boot from the
+  `app_onboot` row. Keep the CIFS route as recovery.
 
 ## License
 

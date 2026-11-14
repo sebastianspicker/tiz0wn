@@ -3,12 +3,20 @@
 One owned `GQ55Q60TGUXZG` (Q60T, KantSu2, `T-NKLDEUC-2743.0`). Everything below
 is on that one set; nothing is claimed for another model or firmware.
 
+> **Superseded in part.** This is the 2026-11-04 snapshot. On 2026-11-05 the
+> debloat ladder below was followed by 33 `wgt` removals and 41 `tpk`/`rpm`
+> disables (53 app rows), verified over two reboots; see
+> [`HANDOFF-2026-11-05.md`](HANDOFF-2026-11-05.md). On 2026-11-07 the paused UI
+> shipped its typographic home; the Home-band trial followed on 2026-11-08. See
+> the README's [TV menu](../README.md#tv-menu) and
+> [Home-band](../README.md#replacing-samsungs-home-band) sections.
+
 > **Last check, 2026-11-05 09:40Z:** after standby/wake, no reboot (uptime
 > 9172 s), `/run` and `/cmd` return root, flags `true/true`, relay running,
 > app service alive. **Device status:** recovered at 19:19Z. A clean boot started the agent, the
 > relay and the service without an app opened; `/cmd` and `/run` return root
 > and the relay carries `push`. The earlier wedge needed one power cycle; see
-> `docs/HANDOFF-2026-11-04.md`.
+> [`HANDOFF-2026-11-04.md`](HANDOFF-2026-11-04.md).
 
 ## What works, verified live
 
@@ -58,18 +66,22 @@ sh /Users/sebastian/Projects/Git/tiz0wn-codex/exploits/tiz0wn-root/payload/app-b
 
 ## UI
 
-Paused 2026-11-05. A glass/focus/exit spike is approved and a fixture home
-shell exists, but the carousel still overlaps on the TV while a headless
-Playwright harness passes. Likely cause: **flex `gap` is unsupported in
-Chromium 69** and the harness uses a modern engine. Details and the fix
-direction: `docs/HANDOFF-2026-11-04.md`.
+As of this snapshot, paused. A glass/focus/exit spike was approved and a fixture
+home shell existed, but the carousel overlapped on the TV while a headless
+Playwright harness passed. The cause was **flex `gap` unsupported in Chromium
+69**; the later fix and the shipped typographic home are in the README's
+[TV menu](../README.md#tv-menu) section. Details:
+[`HANDOFF-2026-11-04.md`](HANDOFF-2026-11-04.md).
 
 ## Debloat
 
 The reversible ladder is complete: seven targets trialled, verified across a
-boot in both directions, and reverted. Current state is baseline — every
+boot in both directions, and reverted. State on 2026-11-04 was baseline — every
 `app_disable=false`, `units.off` empty, all four affected units loaded and
-active.
+active. On 2026-11-05 the batch was applied: 33 `wgt` removed and 41
+`tpk`/`rpm` disabled (53 app rows); see
+[`HANDOFF-2026-11-05.md`](HANDOFF-2026-11-05.md) for the applied state and
+reversal paths.
 
 Two levers exist and are not interchangeable:
 

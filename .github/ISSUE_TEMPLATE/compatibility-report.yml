@@ -1,0 +1,145 @@
+name: Compatibility report
+description: Report a verified root or persistence result on one exact Samsung TV build
+title: "[Compatibility] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This form records **one exact build**, not an affected firmware range.
+        Offsets are per-image and must be derived from your own image. Do not
+        paste offsets, credentials, keys, tokens, serial numbers, DUIDs or LAN
+        addresses. The route, carrier identity, cold-boot evidence, UEP state
+        and explicit limits are enough for the coverage matrix.
+
+  - type: input
+    id: model
+    attributes:
+      label: Model
+      description: The exact model code.
+      placeholder: GQ55Q60TGUXZG
+    validations:
+      required: true
+
+  - type: input
+    id: platform
+    attributes:
+      label: Platform / model code
+      description: From the firmware or `/etc/prd_info.ini`, for example `20_KANTSU2_UHD_BASIC`.
+      placeholder: 20_KANTSU2_UHD_BASIC
+    validations:
+      required: true
+
+  - type: input
+    id: firmware
+    attributes:
+      label: Firmware package version
+      description: The version string, for example `T-NKLDEUC-2743.0`.
+      placeholder: T-NKLDEUC-2743.0
+    validations:
+      required: true
+
+  - type: input
+    id: build
+    attributes:
+      label: Build stamp / prd_info build
+      description: The firmer identifier where available, for example `T-NKLDEUC-REL-202607022001` or a `TIZEN-TRUNK…` build.
+      placeholder: T-NKLDEUC-REL-202607022001
+    validations:
+      required: false
+
+  - type: dropdown
+    id: route
+    attributes:
+      label: Route to root
+      options:
+        - Remote PC / CIFS credential sink
+        - USB image (name the upstream method)
+        - Kernel LPE (name the primitive)
+        - SDB foothold plus another step
+        - Other (describe below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: route_detail
+    attributes:
+      label: Route detail
+      description: Entry, privilege step and what was actually run. Say whether this is the upstream chain unchanged or a local adaptation.
+      placeholder: What reached UID 0, and what was different from the published chain.
+    validations:
+      required: true
+
+  - type: textarea
+    id: persistence
+    attributes:
+      label: Persistence and carrier
+      description: File path, size and SHA-256 if a profile script was patched. State how the offset was derived and whether it is withheld; do not paste the offset.
+      placeholder: /etc/profile.d/bash_prompt_custom.sh, 776 bytes, SHA-256 …; offset derived from my own image and withheld.
+    validations:
+      required: true
+
+  - type: textarea
+    id: cold_boots
+    attributes:
+      label: Cold-boot evidence
+      description: Number and kind of power cycles, and what was checked after each.
+      placeholder: Three unplugged cold boots; uid=0 and a fresh command after each.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: uep
+    attributes:
+      label: UEP state
+      options:
+        - Left enabled (content invocation only)
+        - Disabled (state how below)
+        - Not checked
+    validations:
+      required: true
+
+  - type: textarea
+    id: rollback
+    attributes:
+      label: Rollback and OTA status
+      description: Was rollback performed on the live TV? Is OTA survival or re-application tested?
+    validations:
+      required: true
+
+  - type: textarea
+    id: limits
+    attributes:
+      label: Limits and negative results
+      description: What was not tested, what failed, and what this report does not claim.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and public links
+      description: Optional. Sanitized excerpts, hashes or a public write-up. Do not attach private dumps.
+    validations:
+      required: false
+
+  - type: input
+    id: assistance
+    attributes:
+      label: Assistance and attribution
+      description: Optional. Note AI assistance or other contributors.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I own or am authorized to test this device.
+          required: true
+        - label: This report covers one exact build; I am not claiming an affected firmware range.
+          required: true
+        - label: I have not included offsets, credentials, keys, tokens, serial numbers, DUIDs or LAN addresses.
+          required: true
+        - label: I understand the maintainer may edit the coverage row for accuracy and may close the issue once it is recorded.
+          required: true
